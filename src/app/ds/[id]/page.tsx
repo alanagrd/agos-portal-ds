@@ -380,6 +380,14 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
               <p className="text-xs text-gray-400 mb-1">Responsável na obra</p>
               <p className="text-sm font-medium text-gray-700">{ds.obra?.responsavel_nome}</p>
               <p className="text-xs text-gray-400">{ds.obra?.responsavel_email}</p>
+              {ds.obra?.emails_copia && ds.obra.emails_copia.length > 0 && (
+                <div className="mt-2">
+                  <p className="text-xs text-gray-400 mb-1">Em cópia</p>
+                  {ds.obra.emails_copia.map((email, i) => (
+                    <p key={i} className="text-xs text-gray-400">{email}</p>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </div>

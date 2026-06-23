@@ -11,6 +11,7 @@ export interface Obra {
   cliente: string;
   responsavel_nome: string;
   responsavel_email: string;
+  emails_copia: string[];
   ativa: boolean;
   criado_em: string;
 }
