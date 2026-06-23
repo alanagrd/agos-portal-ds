@@ -63,7 +63,7 @@ export default function AprovarPage({ params }: { params: { token: string } }) {
     if (!ds || !comentario.trim()) return
     setAcao('revisando')
 
-    await supabase.from('descricoes_servico').update({ status: 'Em revisão' }).eq('id', ds.id)
+    await supabase.from('descricoes_servico').update({ status: 'Alteração solicitada' }).eq('id', ds.id)
     await supabase.from('historico_acoes').insert({
       ds_id: ds.id,
       acao: `Solicitação de revisão: "${comentario}"`,

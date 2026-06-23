@@ -65,38 +65,46 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
     setLoading(false)
   }
 
-  const avancarStatus = async () => {
+  // "Gerada" -> "Em análise interna"
+  const enviarParaAnaliseInterna = async () => {
     if (!ds) return
-    const sc = STATUS_CONFIG[ds.status as StatusDS]
-    const nextStatus = sc.next
-    if (!nextStatus) return
-
-    const acaoMap: Record<string, string> = {
-      'Em conferência interna': 'DS enviada para conferência interna.',
-      'Aguardando aprovação': `DS enviada para aprovação da obra. Link de aprovação enviado para ${ds.obra?.responsavel_email}.`,
-      'Aprovada': 'DS aprovada.',
-    }
-
-    await supabase.from('descricoes_servico').update({ status: nextStatus }).eq('id', ds.id)
+    await supabase.from('descricoes_servico').update({ status: 'Em análise interna' }).eq('id', ds.id)
     await supabase.from('historico_acoes').insert({
       ds_id: ds.id,
-      acao: acaoMap[nextStatus] || `Status atualizado para ${nextStatus}`,
+      acao: 'DS enviada para análise interna.',
       autor: userName,
       tipo: 'sistema',
     })
     loadDS()
   }
 
-  // #3 — Voltar para conferência interna (quando está em "Aguardando aprovação")
-  const voltarParaConferencia = async () => {
+  // "Em análise interna" -> "Aguardando aprovação da obra"
+  const aprovarInternamente = async () => {
     if (!ds) return
-    await supabase.from('descricoes_servico').update({ status: 'Em conferência interna' }).eq('id', ds.id)
+    await supabase.from('descricoes_servico').update({ status: 'Aguardando aprovação da obra' }).eq('id', ds.id)
     await supabase.from('historico_acoes').insert({
       ds_id: ds.id,
-      acao: 'DS retornada para conferência interna para ajustes.',
+      acao: comentario.trim()
+        ? `DS aprovada internamente: "${comentario.trim()}". Enviada para aprovação da obra. Link enviado para ${ds.obra?.responsavel_email}.`
+        : `DS aprovada internamente. Enviada para aprovação da obra. Link enviado para ${ds.obra?.responsavel_email}.`,
       autor: userName,
       tipo: 'sistema',
     })
+    setComentario('')
+    loadDS()
+  }
+
+  // "Em análise interna" -> "Alteração solicitada"
+  const solicitarAlteracao = async () => {
+    if (!ds || !comentario.trim()) return
+    await supabase.from('descricoes_servico').update({ status: 'Alteração solicitada' }).eq('id', ds.id)
+    await supabase.from('historico_acoes').insert({
+      ds_id: ds.id,
+      acao: `Alteração solicitada internamente: "${comentario.trim()}"`,
+      autor: userName,
+      tipo: 'interno',
+    })
+    setComentario('')
     loadDS()
   }
 
@@ -152,8 +160,14 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
         autor: userName,
         tipo: 'sistema',
       })
-      if (ds.status === 'Em revisão') {
-        await supabase.from('descricoes_servico').update({ status: 'Em conferência interna' }).eq('id', ds.id)
+      if (ds.status === 'Alteração solicitada') {
+        await supabase.from('descricoes_servico').update({ status: 'Em análise interna' }).eq('id', ds.id)
+        await supabase.from('historico_acoes').insert({
+          ds_id: ds.id,
+          acao: 'PDF corrigido carregado. DS retornada para análise interna.',
+          autor: userName,
+          tipo: 'sistema',
+        })
       }
       loadDS()
     }
@@ -277,26 +291,52 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
                 )}
               </div>
 
-              {/* Botão avançar status */}
-              {sc.btnLabel && (
-                <button onClick={avancarStatus}
+              {/* Gerada -> Em análise interna */}
+              {ds.status === 'Gerada' && (
+                <button onClick={enviarParaAnaliseInterna}
                   className="mt-4 w-full bg-[#8BAB3E] hover:bg-[#7a9a35] text-white font-semibold py-3 rounded-lg text-sm transition-colors">
-                  {sc.btnLabel}
+                  Enviar para análise interna
                 </button>
               )}
 
-              {/* #3 — Botão voltar para conferência */}
-              {ds.status === 'Aguardando aprovação' && (
-                <div className="mt-3 flex flex-col gap-2">
-                  <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-700">
-                    Link enviado para <strong>{ds.obra?.responsavel_nome}</strong> ({ds.obra?.responsavel_email})
+              {/* Em análise interna -> Aguardando aprovação da obra / Alteração solicitada */}
+              {ds.status === 'Em análise interna' && (
+                <div className="mt-4 flex flex-col gap-2">
+                  <textarea
+                    value={comentario}
+                    onChange={e => setComentario(e.target.value)}
+                    placeholder="Observação (obrigatória para solicitar alteração)..."
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-[#8BAB3E]"
+                    rows={3}
+                  />
+                  <div className="flex gap-2">
+                    <button
+                      onClick={aprovarInternamente}
+                      className="flex-1 bg-[#8BAB3E] hover:bg-[#7a9a35] text-white font-semibold py-2.5 rounded-lg text-sm transition-colors"
+                    >
+                      ✓ Aprovar internamente
+                    </button>
+                    <button
+                      onClick={solicitarAlteracao}
+                      disabled={!comentario.trim()}
+                      className="flex-1 border border-[#E87722] text-[#E87722] hover:bg-orange-50 disabled:opacity-40 font-semibold py-2.5 rounded-lg text-sm transition-colors"
+                    >
+                      Solicitar alteração
+                    </button>
                   </div>
-                  <button
-                    onClick={voltarParaConferencia}
-                    className="w-full border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-2.5 rounded-lg text-sm transition-colors"
-                  >
-                    ↩ Retornar para conferência interna
-                  </button>
+                </div>
+              )}
+
+              {/* Alteração solicitada -> aguarda upload de PDF corrigido */}
+              {ds.status === 'Alteração solicitada' && (
+                <div className="mt-4 bg-orange-50 rounded-lg p-3 text-sm text-[#E87722]">
+                  Alteração solicitada. Envie o PDF corrigido acima para retornar automaticamente para análise interna.
+                </div>
+              )}
+
+              {ds.status === 'Aguardando aprovação da obra' && (
+                <div className="mt-4 bg-blue-50 rounded-lg p-3 text-sm text-blue-700">
+                  Link enviado para <strong>{ds.obra?.responsavel_nome}</strong> ({ds.obra?.responsavel_email}). Aguardando resposta da obra.
                 </div>
               )}
 
@@ -308,7 +348,7 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
             </div>
 
             {/* Observação interna */}
-            {ds.status !== 'Aprovada' && (
+            {ds.status !== 'Aprovada' && ds.status !== 'Em análise interna' && (
               <div className="bg-white rounded-xl border border-gray-100 p-5">
                 <p className="text-sm font-semibold text-gray-700 mb-3">Adicionar observação interna</p>
                 <textarea

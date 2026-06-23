@@ -43,9 +43,7 @@ export default function DashboardPage() {
     return matchStatus && matchObra
   })
 
-  const pendentes = dsList.filter(d => d.status !== 'Aprovada').length
-  const revisao = dsList.filter(d => d.status === 'Em revisão').length
-  const aprovadas = dsList.filter(d => d.status === 'Aprovada').length
+  const contagem = (status: StatusDS) => dsList.filter(d => d.status === status).length
 
   if (loading) {
     return (
@@ -64,15 +62,23 @@ export default function DashboardPage() {
       <div className="max-w-5xl mx-auto px-5 py-7">
 
         {/* Cards resumo */}
-        <div className="grid grid-cols-3 gap-4 mb-7">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4 mb-7">
           {[
-            { label: 'Em andamento', valor: pendentes, color: '#E87722' },
-            { label: 'Aguardando revisão', valor: revisao, color: '#dc2626' },
-            { label: 'Aprovadas', valor: aprovadas, color: '#8BAB3E' },
+            { label: 'Geradas', valor: contagem('Gerada'), color: '#6b7280', bg: 'bg-white border-gray-100', destaque: false },
+            { label: 'Em análise interna', valor: contagem('Em análise interna'), color: '#b45309', bg: 'bg-white border-gray-100', destaque: false },
+            { label: 'Alteração solicitada', valor: contagem('Alteração solicitada'), color: '#E87722', bg: 'bg-orange-50 border-[#E87722]', destaque: true },
+            { label: 'Aguardando aprovação da obra', valor: contagem('Aguardando aprovação da obra'), color: '#1d4ed8', bg: 'bg-white border-gray-100', destaque: false },
+            { label: 'Aprovadas', valor: contagem('Aprovada'), color: '#8BAB3E', bg: 'bg-white border-gray-100', destaque: false },
           ].map((c, i) => (
-            <div key={i} className="bg-white rounded-xl border border-gray-100 p-5">
-              <div className="text-3xl font-bold" style={{ color: c.color }}>{c.valor}</div>
-              <div className="text-sm text-gray-500 mt-1">{c.label}</div>
+            <div
+              key={i}
+              className={`rounded-xl border p-5 ${c.bg} ${c.destaque ? 'border-2 shadow-md ring-2 ring-[#E87722]/20' : ''}`}
+            >
+              <div className={`font-bold ${c.destaque ? 'text-4xl' : 'text-3xl'}`} style={{ color: c.color }}>{c.valor}</div>
+              <div className={`text-sm mt-1 ${c.destaque ? 'font-semibold text-[#E87722]' : 'text-gray-500'}`}>{c.label}</div>
+              {c.destaque && c.valor > 0 && (
+                <div className="text-xs text-[#E87722] font-medium mt-1.5">⚠ Ação necessária</div>
+              )}
             </div>
           ))}
         </div>

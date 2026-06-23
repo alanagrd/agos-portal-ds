@@ -1,8 +1,8 @@
 export type StatusDS =
   | 'Gerada'
-  | 'Em conferência interna'
-  | 'Aguardando aprovação'
-  | 'Em revisão'
+  | 'Em análise interna'
+  | 'Alteração solicitada'
+  | 'Aguardando aprovação da obra'
   | 'Aprovada';
 
 export interface Obra {
