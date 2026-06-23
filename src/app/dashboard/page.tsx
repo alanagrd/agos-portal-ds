@@ -101,12 +101,20 @@ export default function DashboardPage() {
               ))}
             </select>
           </div>
-          <Link
-            href="/ds/nova"
-            className="bg-[#8BAB3E] hover:bg-[#7a9a35] text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-          >
-            + Nova DS
-          </Link>
+          <div className="flex gap-2">
+            <Link
+              href="/ds/massa"
+              className="border border-gray-200 bg-white hover:bg-gray-50 text-gray-600 text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+            >
+              ↑ Upload em massa
+            </Link>
+            <Link
+              href="/ds/nova"
+              className="bg-[#8BAB3E] hover:bg-[#7a9a35] text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
+            >
+              + Nova DS
+            </Link>
+          </div>
         </div>
 
         {/* Lista de DSs */}
