@@ -74,6 +74,9 @@ export default function ObrasPage() {
   const [editEmailsCopia, setEditEmailsCopia] = useState<string[]>([])
   const [savingEdit, setSavingEdit] = useState(false)
 
+  // Exclusão
+  const [excluindoId, setExcluindoId] = useState<string | null>(null)
+
   const router = useRouter()
   const supabase = createClient()
 
@@ -128,6 +131,30 @@ export default function ObrasPage() {
 
   const toggleAtiva = async (obra: Obra) => {
     await supabase.from('obras').update({ ativa: !obra.ativa }).eq('id', obra.id)
+    loadObras()
+  }
+
+  const excluirObra = async (obra: Obra) => {
+    setExcluindoId(obra.id)
+
+    const { count } = await supabase
+      .from('descricoes_servico')
+      .select('id', { count: 'exact', head: true })
+      .eq('obra_id', obra.id)
+
+    if ((count ?? 0) > 0) {
+      alert(`Não é possível excluir "${obra.nome}": existem ${count} DS(s) vinculada(s) a esta obra. Desative a obra ou remova as DSs primeiro.`)
+      setExcluindoId(null)
+      return
+    }
+
+    if (!confirm(`Excluir definitivamente a obra "${obra.nome}"? Esta ação não pode ser desfeita.`)) {
+      setExcluindoId(null)
+      return
+    }
+
+    await supabase.from('obras').delete().eq('id', obra.id)
+    setExcluindoId(null)
     loadObras()
   }
 
@@ -246,6 +273,10 @@ export default function ObrasPage() {
                   <button onClick={() => toggleAtiva(obra)}
                     className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 transition-colors">
                     {obra.ativa ? 'Desativar' : 'Ativar'}
+                  </button>
+                  <button onClick={() => excluirObra(obra)} disabled={excluindoId === obra.id}
+                    className="text-xs text-red-400 hover:text-red-600 hover:bg-red-50 border border-gray-200 rounded-lg px-3 py-1.5 transition-colors disabled:opacity-50">
+                    {excluindoId === obra.id ? '...' : 'Excluir'}
                   </button>
                 </div>
               </div>

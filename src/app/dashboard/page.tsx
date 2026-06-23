@@ -8,13 +8,14 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import Header from '@/components/layout/Header'
 import { DescricaoServico, StatusDS } from '@/types'
-import { STATUS_CONFIG, formatDate } from '@/lib/utils'
+import { STATUS_CONFIG, formatDate, getCompetenciaAtual, normalizarCompetencia, compararCompetencias } from '@/lib/utils'
 
 export default function DashboardPage() {
   const [dsList, setDsList] = useState<DescricaoServico[]>([])
   const [loading, setLoading] = useState(true)
   const [filtroStatus, setFiltroStatus] = useState<string>('todos')
   const [filtroObra, setFiltroObra] = useState<string>('todas')
+  const [filtroCompetencia, setFiltroCompetencia] = useState<string>(getCompetenciaAtual())
   const router = useRouter()
   const supabase = createClient()
 
@@ -37,13 +38,26 @@ export default function DashboardPage() {
 
   const obras = Array.from(new Map(dsList.map(ds => [ds.obra_id, ds.obra])).values())
 
-  const dsFiltradas = dsList.filter(ds => {
-    const matchStatus = filtroStatus === 'todos' || ds.status === filtroStatus
+  const competenciaAtual = getCompetenciaAtual()
+  const competencias = Array.from(
+    new Map(
+      [...dsList.map(ds => ds.mes_referencia), competenciaAtual]
+        .map(c => [normalizarCompetencia(c), c] as [string, string])
+    ).values()
+  ).sort(compararCompetencias)
+
+  const dsDoPeriodo = dsList.filter(ds => {
     const matchObra = filtroObra === 'todas' || ds.obra_id === filtroObra
-    return matchStatus && matchObra
+    const matchCompetencia = filtroCompetencia === 'todas' || normalizarCompetencia(ds.mes_referencia) === normalizarCompetencia(filtroCompetencia)
+    return matchObra && matchCompetencia
   })
 
-  const contagem = (status: StatusDS) => dsList.filter(d => d.status === status).length
+  const dsFiltradas = dsDoPeriodo.filter(ds => {
+    const matchStatus = filtroStatus === 'todos' || ds.status === filtroStatus
+    return matchStatus
+  })
+
+  const contagem = (status: StatusDS) => dsDoPeriodo.filter(d => d.status === status).length
 
   if (loading) {
     return (
@@ -86,6 +100,16 @@ export default function DashboardPage() {
         {/* Filtros + botão nova DS */}
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <div className="flex gap-2">
+            <select
+              value={filtroCompetencia}
+              onChange={e => setFiltroCompetencia(e.target.value)}
+              className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white"
+            >
+              <option value="todas">Todas as competências</option>
+              {competencias.map(c => (
+                <option key={c} value={c}>{c}</option>
+              ))}
+            </select>
             <select
               value={filtroObra}
               onChange={e => setFiltroObra(e.target.value)}

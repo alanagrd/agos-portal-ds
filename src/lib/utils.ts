@@ -66,3 +66,35 @@ export function formatDateShort(dateString: string) {
     month: '2-digit',
   })
 }
+
+export const MESES_PT = [
+  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro',
+]
+
+export function getCompetenciaAtual() {
+  const hoje = new Date()
+  return `${MESES_PT[hoje.getMonth()]}/${hoje.getFullYear()}`
+}
+
+export function normalizarCompetencia(competencia: string) {
+  return competencia.trim().toLowerCase()
+}
+
+// Ordena competências da mais recente para a mais antiga, com base em "Mês/Ano".
+// Valores que não seguem esse formato vão para o final, em ordem alfabética.
+export function compararCompetencias(a: string, b: string) {
+  const parse = (c: string) => {
+    const [mesNome, ano] = c.split('/')
+    const mesIndex = MESES_PT.findIndex(m => m.toLowerCase() === mesNome?.trim().toLowerCase())
+    const anoNum = parseInt(ano, 10)
+    if (mesIndex === -1 || isNaN(anoNum)) return null
+    return anoNum * 12 + mesIndex
+  }
+  const pa = parse(a)
+  const pb = parse(b)
+  if (pa !== null && pb !== null) return pb - pa
+  if (pa !== null) return -1
+  if (pb !== null) return 1
+  return a.localeCompare(b)
+}
