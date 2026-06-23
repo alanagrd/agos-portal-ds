@@ -161,10 +161,24 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
         tipo: 'sistema',
       })
       if (ds.status === 'Alteração solicitada') {
-        await supabase.from('descricoes_servico').update({ status: 'Em análise interna' }).eq('id', ds.id)
+        const { data: ultimaSolicitacao } = await supabase
+          .from('historico_acoes')
+          .select('tipo')
+          .eq('ds_id', ds.id)
+          .ilike('acao', 'Alteração solicitada%')
+          .order('criado_em', { ascending: false })
+          .limit(1)
+          .single()
+
+        const solicitadaPelaObra = ultimaSolicitacao?.tipo === 'cliente'
+        const novoStatus: StatusDS = solicitadaPelaObra ? 'Aguardando aprovação da obra' : 'Em análise interna'
+
+        await supabase.from('descricoes_servico').update({ status: novoStatus }).eq('id', ds.id)
         await supabase.from('historico_acoes').insert({
           ds_id: ds.id,
-          acao: 'PDF corrigido carregado. DS retornada para análise interna.',
+          acao: solicitadaPelaObra
+            ? `PDF corrigido carregado. DS enviada novamente para aprovação da obra. Link enviado para ${ds.obra?.responsavel_email}.`
+            : 'PDF corrigido carregado. DS retornada para análise interna.',
           autor: userName,
           tipo: 'sistema',
         })

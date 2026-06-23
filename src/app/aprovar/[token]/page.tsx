@@ -66,7 +66,7 @@ export default function AprovarPage({ params }: { params: { token: string } }) {
     await supabase.from('descricoes_servico').update({ status: 'Alteração solicitada' }).eq('id', ds.id)
     await supabase.from('historico_acoes').insert({
       ds_id: ds.id,
-      acao: `Solicitação de revisão: "${comentario}"`,
+      acao: `Alteração solicitada pela obra: "${comentario}"`,
       autor: ds.obra?.responsavel_nome || 'Cliente',
       tipo: 'cliente',
     })
@@ -115,7 +115,7 @@ export default function AprovarPage({ params }: { params: { token: string } }) {
           <div className="w-16 h-16 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <span className="text-orange-600 text-2xl">!</span>
           </div>
-          <p className="text-lg font-bold text-[#111]">Revisão solicitada</p>
+          <p className="text-lg font-bold text-[#111]">Alteração solicitada</p>
           <p className="text-gray-400 text-sm mt-1">A AGOS Serviços recebeu sua solicitação e irá corrigir em breve.</p>
         </div>
       </div>
@@ -200,11 +200,11 @@ export default function AprovarPage({ params }: { params: { token: string } }) {
               <div className="w-full border-t border-gray-100" />
             </div>
             <div className="relative flex justify-center">
-              <span className="bg-white px-3 text-xs text-gray-400">ou solicitar revisão</span>
+              <span className="bg-white px-3 text-xs text-gray-400">ou solicitar alteração</span>
             </div>
           </div>
 
-          {/* Revisão */}
+          {/* Solicitar alteração */}
           <textarea
             value={comentario}
             onChange={e => setComentario(e.target.value)}
@@ -217,7 +217,7 @@ export default function AprovarPage({ params }: { params: { token: string } }) {
             disabled={!comentario.trim() || !!acao}
             className="w-full border border-[#E87722] text-[#E87722] hover:bg-orange-50 disabled:opacity-40 font-semibold py-2.5 rounded-lg text-sm transition-colors"
           >
-            {acao === 'revisando' ? 'Enviando...' : 'Solicitar revisão'}
+            {acao === 'revisando' ? 'Enviando...' : '✏️ Solicitar alteração'}
           </button>
         </div>
 
