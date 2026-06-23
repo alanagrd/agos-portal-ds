@@ -9,6 +9,13 @@ import { createClient } from '@/lib/supabase/client'
 import Header from '@/components/layout/Header'
 import { Obra } from '@/types'
 
+function formatBRL(raw: string) {
+  const digits = raw.replace(/\D/g, '')
+  if (!digits) return ''
+  const num = parseInt(digits, 10) / 100
+  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
 export default function NovaDSPage() {
   const [obras, setObras] = useState<Obra[]>([])
   const [obraId, setObraId] = useState('')
@@ -123,8 +130,9 @@ export default function NovaDSPage() {
               <label className="block text-sm font-medium text-gray-700 mb-1.5">Valor total</label>
               <input
                 value={valor}
-                onChange={e => setValor(e.target.value)}
-                placeholder="Ex: R$ 48.320,00"
+                onChange={e => setValor(formatBRL(e.target.value))}
+                placeholder="R$ 0,00"
+                inputMode="numeric"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#8BAB3E]"
               />
             </div>

@@ -10,6 +10,13 @@ import Header from '@/components/layout/Header'
 import { DescricaoServico, HistoricoAcao, VersaoPDF, StatusDS } from '@/types'
 import { STATUS_CONFIG, formatDate } from '@/lib/utils'
 
+function formatBRL(raw: string) {
+  const digits = raw.replace(/\D/g, '')
+  if (!digits) return ''
+  const num = parseInt(digits, 10) / 100
+  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
 export default function DSDetalhePage({ params }: { params: { id: string } }) {
   const [ds, setDs] = useState<DescricaoServico | null>(null)
   const [historico, setHistorico] = useState<HistoricoAcao[]>([])
@@ -18,6 +25,12 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
   const [comentario, setComentario] = useState('')
   const [uploading, setUploading] = useState(false)
   const [userName, setUserName] = useState('AGOS')
+
+  // Editar valor
+  const [editandoValor, setEditandoValor] = useState(false)
+  const [novoValor, setNovoValor] = useState('')
+  const [salvandoValor, setSalvandoValor] = useState(false)
+
   const router = useRouter()
   const supabase = createClient()
 
@@ -64,31 +77,55 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
       'Aprovada': 'DS aprovada.',
     }
 
-    await supabase
-      .from('descricoes_servico')
-      .update({ status: nextStatus })
-      .eq('id', ds.id)
-
+    await supabase.from('descricoes_servico').update({ status: nextStatus }).eq('id', ds.id)
     await supabase.from('historico_acoes').insert({
       ds_id: ds.id,
       acao: acaoMap[nextStatus] || `Status atualizado para ${nextStatus}`,
       autor: userName,
       tipo: 'sistema',
     })
+    loadDS()
+  }
 
+  // #3 — Voltar para conferência interna (quando está em "Aguardando aprovação")
+  const voltarParaConferencia = async () => {
+    if (!ds) return
+    await supabase.from('descricoes_servico').update({ status: 'Em conferência interna' }).eq('id', ds.id)
+    await supabase.from('historico_acoes').insert({
+      ds_id: ds.id,
+      acao: 'DS retornada para conferência interna para ajustes.',
+      autor: userName,
+      tipo: 'sistema',
+    })
+    loadDS()
+  }
+
+  // #4 — Salvar novo valor
+  const salvarValor = async () => {
+    if (!ds || !novoValor) return
+    setSalvandoValor(true)
+    const valorFormatado = formatBRL(novoValor.replace(/\D/g, '') || '0')
+    await supabase.from('descricoes_servico').update({ valor_total: valorFormatado }).eq('id', ds.id)
+    await supabase.from('historico_acoes').insert({
+      ds_id: ds.id,
+      acao: `Valor atualizado para ${valorFormatado}.`,
+      autor: userName,
+      tipo: 'interno',
+    })
+    setEditandoValor(false)
+    setNovoValor('')
+    setSalvandoValor(false)
     loadDS()
   }
 
   const adicionarComentario = async () => {
     if (!comentario.trim() || !ds) return
-
     await supabase.from('historico_acoes').insert({
       ds_id: ds.id,
       acao: comentario,
       autor: userName,
       tipo: 'interno',
     })
-
     setComentario('')
     loadDS()
   }
@@ -100,9 +137,7 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
     const novaVersao = (versoes.length || 0) + 1
     const path = `${ds.id}/v${novaVersao}_${file.name}`
 
-    const { error: uploadError } = await supabase.storage
-      .from('ds-pdfs')
-      .upload(path, file)
+    const { error: uploadError } = await supabase.storage.from('ds-pdfs').upload(path, file)
 
     if (!uploadError) {
       await supabase.from('versoes_pdf').insert({
@@ -111,22 +146,15 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
         storage_path: path,
         enviado_por: userName,
       })
-
       await supabase.from('historico_acoes').insert({
         ds_id: ds.id,
         acao: `PDF v${novaVersao} carregado: ${file.name}`,
         autor: userName,
         tipo: 'sistema',
       })
-
-      // Se estava em revisão, volta automaticamente para conferência interna
       if (ds.status === 'Em revisão') {
-        await supabase
-          .from('descricoes_servico')
-          .update({ status: 'Em conferência interna' })
-          .eq('id', ds.id)
+        await supabase.from('descricoes_servico').update({ status: 'Em conferência interna' }).eq('id', ds.id)
       }
-
       loadDS()
     }
     setUploading(false)
@@ -150,14 +178,12 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
 
   const sc = STATUS_CONFIG[ds.status as StatusDS]
   const ultimaVersao = versoes[0]
-  const linkCliente = `${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('.supabase.co/rest/v1/', '') || ''}/aprovar/${ds.token_aprovacao}`
 
   return (
     <div className="min-h-screen bg-[#F8F9FB]">
       <Header />
       <div className="max-w-5xl mx-auto px-5 py-7">
 
-        {/* Voltar */}
         <Link href="/dashboard" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-5">
           ← Voltar
         </Link>
@@ -175,8 +201,43 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
                   <h1 className="text-xl font-bold text-[#111]">{ds.obra?.nome}</h1>
                   <p className="text-sm text-gray-500 mt-0.5">{ds.obra?.cliente} · {ds.mes_referencia}</p>
                 </div>
+
+                {/* #4 — Valor editável */}
                 <div className="text-right">
-                  <div className="text-2xl font-bold text-[#111]">{ds.valor_total}</div>
+                  {editandoValor ? (
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={novoValor}
+                        onChange={e => setNovoValor(formatBRL(e.target.value))}
+                        placeholder="R$ 0,00"
+                        className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-right w-36 focus:outline-none focus:ring-2 focus:ring-[#8BAB3E]"
+                        autoFocus
+                      />
+                      <button
+                        onClick={salvarValor}
+                        disabled={salvandoValor || !novoValor}
+                        className="text-xs bg-[#8BAB3E] text-white px-3 py-1.5 rounded-lg disabled:opacity-50"
+                      >
+                        {salvandoValor ? '...' : 'Salvar'}
+                      </button>
+                      <button onClick={() => { setEditandoValor(false); setNovoValor('') }} className="text-xs text-gray-400 hover:text-gray-600">
+                        ✕
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 justify-end">
+                      <div className="text-2xl font-bold text-[#111]">{ds.valor_total}</div>
+                      {ds.status !== 'Aprovada' && (
+                        <button
+                          onClick={() => { setEditandoValor(true); setNovoValor(ds.valor_total) }}
+                          className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded px-2 py-1"
+                        >
+                          ✏️
+                        </button>
+                      )}
+                    </div>
+                  )}
                   <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium mt-2 ${sc.bgColor} ${sc.textColor}`}>
                     <div className={`w-1.5 h-1.5 rounded-full ${sc.dotColor}`} />
                     {sc.label}
@@ -194,12 +255,8 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
                     <p className="text-sm font-medium text-gray-800 truncate">{ultimaVersao.storage_path.split('/').pop()}</p>
                     <p className="text-xs text-gray-400 mt-0.5">v{ultimaVersao.numero_versao} · enviado por {ultimaVersao.enviado_por} · {formatDate(ultimaVersao.criado_em)}</p>
                   </div>
-                  <a
-                    href={getPublicUrl(ultimaVersao.storage_path)}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-[#8BAB3E] font-medium hover:underline flex-shrink-0"
-                  >
+                  <a href={getPublicUrl(ultimaVersao.storage_path)} target="_blank" rel="noopener noreferrer"
+                    className="text-sm text-[#8BAB3E] font-medium hover:underline flex-shrink-0">
                     Abrir
                   </a>
                 </div>
@@ -209,7 +266,7 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
                 </div>
               )}
 
-              {/* Upload nova versão */}
+              {/* Upload */}
               <div className="mt-3">
                 <label className="cursor-pointer inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 border border-gray-200 rounded-lg px-3 py-2 bg-white">
                   <input type="file" accept=".pdf" onChange={uploadPDF} className="hidden" disabled={uploading} />
@@ -222,17 +279,24 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
 
               {/* Botão avançar status */}
               {sc.btnLabel && (
-                <button
-                  onClick={avancarStatus}
-                  className="mt-4 w-full bg-[#8BAB3E] hover:bg-[#7a9a35] text-white font-semibold py-3 rounded-lg text-sm transition-colors"
-                >
+                <button onClick={avancarStatus}
+                  className="mt-4 w-full bg-[#8BAB3E] hover:bg-[#7a9a35] text-white font-semibold py-3 rounded-lg text-sm transition-colors">
                   {sc.btnLabel}
                 </button>
               )}
 
+              {/* #3 — Botão voltar para conferência */}
               {ds.status === 'Aguardando aprovação' && (
-                <div className="mt-4 bg-blue-50 rounded-lg p-3 text-sm text-blue-700">
-                  Link enviado para <strong>{ds.obra?.responsavel_nome}</strong> ({ds.obra?.responsavel_email})
+                <div className="mt-3 flex flex-col gap-2">
+                  <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-700">
+                    Link enviado para <strong>{ds.obra?.responsavel_nome}</strong> ({ds.obra?.responsavel_email})
+                  </div>
+                  <button
+                    onClick={voltarParaConferencia}
+                    className="w-full border border-gray-200 text-gray-600 hover:bg-gray-50 font-medium py-2.5 rounded-lg text-sm transition-colors"
+                  >
+                    ↩ Retornar para conferência interna
+                  </button>
                 </div>
               )}
 
@@ -272,12 +336,8 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
                   {versoes.slice(1).map(v => (
                     <div key={v.id} className="flex items-center justify-between text-sm">
                       <span className="text-gray-500">v{v.numero_versao} · {formatDate(v.criado_em)}</span>
-                      <a
-                        href={getPublicUrl(v.storage_path)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[#8BAB3E] hover:underline text-xs"
-                      >
+                      <a href={getPublicUrl(v.storage_path)} target="_blank" rel="noopener noreferrer"
+                        className="text-[#8BAB3E] hover:underline text-xs">
                         Abrir
                       </a>
                     </div>
@@ -298,9 +358,7 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
                       ev.tipo === 'cliente' ? 'bg-blue-400' :
                       ev.tipo === 'interno' ? 'bg-amber-400' : 'bg-gray-300'
                     }`} />
-                    {i < historico.length - 1 && (
-                      <div className="w-px flex-1 bg-gray-100 mt-1" />
-                    )}
+                    {i < historico.length - 1 && <div className="w-px flex-1 bg-gray-100 mt-1" />}
                   </div>
                   <div className="flex-1 pb-1">
                     <p className={`text-xs leading-relaxed ${
@@ -315,12 +373,9 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
                   </div>
                 </div>
               ))}
-              {historico.length === 0 && (
-                <p className="text-xs text-gray-400">Nenhuma ação registrada.</p>
-              )}
+              {historico.length === 0 && <p className="text-xs text-gray-400">Nenhuma ação registrada.</p>}
             </div>
 
-            {/* Responsável */}
             <div className="mt-2 pt-4 border-t border-gray-100">
               <p className="text-xs text-gray-400 mb-1">Responsável na obra</p>
               <p className="text-sm font-medium text-gray-700">{ds.obra?.responsavel_nome}</p>

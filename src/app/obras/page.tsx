@@ -17,6 +17,15 @@ export default function ObrasPage() {
   const [respNome, setRespNome] = useState('')
   const [respEmail, setRespEmail] = useState('')
   const [saving, setSaving] = useState(false)
+
+  // Edição
+  const [editando, setEditando] = useState<Obra | null>(null)
+  const [editNome, setEditNome] = useState('')
+  const [editCliente, setEditCliente] = useState('')
+  const [editRespNome, setEditRespNome] = useState('')
+  const [editRespEmail, setEditRespEmail] = useState('')
+  const [savingEdit, setSavingEdit] = useState(false)
+
   const router = useRouter()
   const supabase = createClient()
 
@@ -25,7 +34,6 @@ export default function ObrasPage() {
   const loadObras = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/auth/login'); return }
-
     const { data } = await supabase.from('obras').select('*').order('nome')
     if (data) setObras(data)
     setLoading(false)
@@ -34,16 +42,32 @@ export default function ObrasPage() {
   const salvarObra = async () => {
     if (!nome || !cliente || !respNome || !respEmail) return
     setSaving(true)
-
-    await supabase.from('obras').insert({
-      nome, cliente,
-      responsavel_nome: respNome,
-      responsavel_email: respEmail,
-    })
-
+    await supabase.from('obras').insert({ nome, cliente, responsavel_nome: respNome, responsavel_email: respEmail })
     setNome(''); setCliente(''); setRespNome(''); setRespEmail('')
     setShowForm(false)
     setSaving(false)
+    loadObras()
+  }
+
+  const abrirEdicao = (obra: Obra) => {
+    setEditando(obra)
+    setEditNome(obra.nome)
+    setEditCliente(obra.cliente)
+    setEditRespNome(obra.responsavel_nome)
+    setEditRespEmail(obra.responsavel_email)
+  }
+
+  const salvarEdicao = async () => {
+    if (!editando || !editNome || !editCliente || !editRespNome || !editRespEmail) return
+    setSavingEdit(true)
+    await supabase.from('obras').update({
+      nome: editNome,
+      cliente: editCliente,
+      responsavel_nome: editRespNome,
+      responsavel_email: editRespEmail,
+    }).eq('id', editando.id)
+    setSavingEdit(false)
+    setEditando(null)
     loadObras()
   }
 
@@ -79,29 +103,51 @@ export default function ObrasPage() {
               ].map(f => (
                 <div key={f.label}>
                   <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>
-                  <input
-                    value={f.val}
-                    onChange={e => f.set(e.target.value)}
-                    placeholder={f.placeholder}
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#8BAB3E]"
-                  />
+                  <input value={f.val} onChange={e => f.set(e.target.value)} placeholder={f.placeholder}
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#8BAB3E]" />
                 </div>
               ))}
             </div>
             <div className="flex gap-2 mt-4">
-              <button
-                onClick={salvarObra}
-                disabled={saving || !nome || !cliente || !respNome || !respEmail}
-                className="bg-[#8BAB3E] hover:bg-[#7a9a35] disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
-              >
+              <button onClick={salvarObra} disabled={saving || !nome || !cliente || !respNome || !respEmail}
+                className="bg-[#8BAB3E] hover:bg-[#7a9a35] disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
                 {saving ? 'Salvando...' : 'Salvar'}
               </button>
-              <button
-                onClick={() => setShowForm(false)}
-                className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2"
-              >
+              <button onClick={() => setShowForm(false)} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">
                 Cancelar
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Modal de edição */}
+        {editando && (
+          <div className="fixed inset-0 bg-black/30 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl border border-gray-100 p-6 w-full max-w-md shadow-xl">
+              <h2 className="text-sm font-bold text-gray-800 mb-4">Editar obra</h2>
+              <div className="space-y-3">
+                {[
+                  { label: 'Nome da obra', val: editNome, set: setEditNome, placeholder: 'Ex: Edifício Horizonte' },
+                  { label: 'Construtora / Cliente', val: editCliente, set: setEditCliente, placeholder: 'Ex: LBL Engenharia' },
+                  { label: 'Responsável (nome)', val: editRespNome, set: setEditRespNome, placeholder: 'Ex: Eng. Ricardo Matos' },
+                  { label: 'Responsável (e-mail)', val: editRespEmail, set: setEditRespEmail, placeholder: 'ricardo@lbl.com.br' },
+                ].map(f => (
+                  <div key={f.label}>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>
+                    <input value={f.val} onChange={e => f.set(e.target.value)} placeholder={f.placeholder}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#8BAB3E]" />
+                  </div>
+                ))}
+              </div>
+              <div className="flex gap-2 mt-5">
+                <button onClick={salvarEdicao} disabled={savingEdit || !editNome || !editCliente || !editRespNome || !editRespEmail}
+                  className="flex-1 bg-[#8BAB3E] hover:bg-[#7a9a35] disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
+                  {savingEdit ? 'Salvando...' : 'Salvar alterações'}
+                </button>
+                <button onClick={() => setEditando(null)} className="text-sm text-gray-500 hover:text-gray-700 px-4 py-2">
+                  Cancelar
+                </button>
+              </div>
             </div>
           </div>
         )}
@@ -122,12 +168,16 @@ export default function ObrasPage() {
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">{obra.cliente} · {obra.responsavel_nome} · {obra.responsavel_email}</p>
                 </div>
-                <button
-                  onClick={() => toggleAtiva(obra)}
-                  className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 transition-colors"
-                >
-                  {obra.ativa ? 'Desativar' : 'Ativar'}
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => abrirEdicao(obra)}
+                    className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 transition-colors">
+                    Editar
+                  </button>
+                  <button onClick={() => toggleAtiva(obra)}
+                    className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded-lg px-3 py-1.5 transition-colors">
+                    {obra.ativa ? 'Desativar' : 'Ativar'}
+                  </button>
+                </div>
               </div>
             ))}
             {obras.length === 0 && (
