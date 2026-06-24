@@ -60,6 +60,7 @@ export default function ObrasPage() {
   // Nova obra
   const [nome, setNome] = useState('')
   const [cliente, setCliente] = useState('')
+  const [codigoCliente, setCodigoCliente] = useState('')
   const [respNome, setRespNome] = useState('')
   const [respEmail, setRespEmail] = useState('')
   const [emailsCopia, setEmailsCopia] = useState<string[]>([])
@@ -69,6 +70,7 @@ export default function ObrasPage() {
   const [editando, setEditando] = useState<Obra | null>(null)
   const [editNome, setEditNome] = useState('')
   const [editCliente, setEditCliente] = useState('')
+  const [editCodigoCliente, setEditCodigoCliente] = useState('')
   const [editRespNome, setEditRespNome] = useState('')
   const [editRespEmail, setEditRespEmail] = useState('')
   const [editEmailsCopia, setEditEmailsCopia] = useState<string[]>([])
@@ -95,11 +97,12 @@ export default function ObrasPage() {
     setSaving(true)
     await supabase.from('obras').insert({
       nome, cliente,
+      codigo_cliente: codigoCliente.trim() || null,
       responsavel_nome: respNome,
       responsavel_email: respEmail,
       emails_copia: emailsCopia.filter(e => e.trim()),
     })
-    setNome(''); setCliente(''); setRespNome(''); setRespEmail(''); setEmailsCopia([])
+    setNome(''); setCliente(''); setCodigoCliente(''); setRespNome(''); setRespEmail(''); setEmailsCopia([])
     setShowForm(false)
     setSaving(false)
     loadObras()
@@ -109,6 +112,7 @@ export default function ObrasPage() {
     setEditando(obra)
     setEditNome(obra.nome)
     setEditCliente(obra.cliente)
+    setEditCodigoCliente(obra.codigo_cliente || '')
     setEditRespNome(obra.responsavel_nome)
     setEditRespEmail(obra.responsavel_email)
     setEditEmailsCopia(obra.emails_copia || [])
@@ -120,6 +124,7 @@ export default function ObrasPage() {
     await supabase.from('obras').update({
       nome: editNome,
       cliente: editCliente,
+      codigo_cliente: editCodigoCliente.trim() || null,
       responsavel_nome: editRespNome,
       responsavel_email: editRespEmail,
       emails_copia: editEmailsCopia.filter(e => e.trim()),
@@ -159,11 +164,12 @@ export default function ObrasPage() {
   }
 
   const camposBase = (
-    vals: { nome: string; cliente: string; respNome: string; respEmail: string },
-    sets: { setNome: (v: string) => void; setCliente: (v: string) => void; setRespNome: (v: string) => void; setRespEmail: (v: string) => void }
+    vals: { nome: string; cliente: string; codigoCliente: string; respNome: string; respEmail: string },
+    sets: { setNome: (v: string) => void; setCliente: (v: string) => void; setCodigoCliente: (v: string) => void; setRespNome: (v: string) => void; setRespEmail: (v: string) => void }
   ) => [
     { label: 'Nome da obra', val: vals.nome, set: sets.setNome, placeholder: 'Ex: Edifício Horizonte', col: 'col-span-2' },
-    { label: 'Construtora / Cliente', val: vals.cliente, set: sets.setCliente, placeholder: 'Ex: LBL Engenharia', col: 'col-span-2' },
+    { label: 'Construtora / Cliente', val: vals.cliente, set: sets.setCliente, placeholder: 'Ex: LBL Engenharia', col: '' },
+    { label: 'Código do cliente', val: vals.codigoCliente, set: sets.setCodigoCliente, placeholder: 'Ex: 1234', col: '' },
     { label: 'Responsável (nome)', val: vals.respNome, set: sets.setRespNome, placeholder: 'Ex: Eng. Ricardo Matos', col: '' },
     { label: 'E-mail principal', val: vals.respEmail, set: sets.setRespEmail, placeholder: 'ricardo@lbl.com.br', col: '' },
   ]
@@ -186,8 +192,8 @@ export default function ObrasPage() {
             <h2 className="text-sm font-semibold text-gray-700 mb-4">Nova obra</h2>
             <div className="grid grid-cols-2 gap-3 mb-3">
               {camposBase(
-                { nome, cliente, respNome, respEmail },
-                { setNome, setCliente, setRespNome, setRespEmail }
+                { nome, cliente, codigoCliente, respNome, respEmail },
+                { setNome, setCliente, setCodigoCliente, setRespNome, setRespEmail }
               ).map(f => (
                 <div key={f.label} className={f.col}>
                   <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>
@@ -219,8 +225,8 @@ export default function ObrasPage() {
               <h2 className="text-sm font-bold text-gray-800 mb-4">Editar obra</h2>
               <div className="grid grid-cols-2 gap-3 mb-3">
                 {camposBase(
-                  { nome: editNome, cliente: editCliente, respNome: editRespNome, respEmail: editRespEmail },
-                  { setNome: setEditNome, setCliente: setEditCliente, setRespNome: setEditRespNome, setRespEmail: setEditRespEmail }
+                  { nome: editNome, cliente: editCliente, codigoCliente: editCodigoCliente, respNome: editRespNome, respEmail: editRespEmail },
+                  { setNome: setEditNome, setCliente: setEditCliente, setCodigoCliente: setEditCodigoCliente, setRespNome: setEditRespNome, setRespEmail: setEditRespEmail }
                 ).map(f => (
                   <div key={f.label} className={f.col}>
                     <label className="block text-xs font-medium text-gray-600 mb-1">{f.label}</label>
@@ -259,7 +265,7 @@ export default function ObrasPage() {
                     {!obra.ativa && <span className="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">Inativa</span>}
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    {obra.cliente} · {obra.responsavel_nome} · {obra.responsavel_email}
+                    {obra.codigo_cliente && <span className="font-medium text-gray-500">[{obra.codigo_cliente}]</span>} {obra.cliente} · {obra.responsavel_nome} · {obra.responsavel_email}
                     {obra.emails_copia?.length > 0 && (
                       <span className="ml-1 text-gray-300">+{obra.emails_copia.length} em cópia</span>
                     )}

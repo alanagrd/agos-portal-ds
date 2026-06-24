@@ -15,6 +15,7 @@ export interface Obra {
   id: string;
   nome: string;
   cliente: string;
+  codigo_cliente: string | null;
   responsavel_nome: string;
   responsavel_email: string;
   emails_copia: string[];

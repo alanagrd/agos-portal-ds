@@ -208,7 +208,9 @@ export default function DashboardPage() {
                     <span className="text-gray-300">·</span>
                     <span className="text-sm text-gray-500">{ds.mes_referencia}</span>
                   </div>
-                  <div className="text-xs text-gray-400">{ds.obra?.cliente} · {ds.obra?.responsavel_nome}</div>
+                  <div className="text-xs text-gray-400">
+                    {ds.obra?.codigo_cliente && <span className="font-medium text-gray-500">[{ds.obra.codigo_cliente}]</span>} {ds.obra?.cliente} · {ds.obra?.responsavel_nome}
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${sc.bgColor} ${sc.textColor}`}>
