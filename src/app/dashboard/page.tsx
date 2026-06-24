@@ -211,7 +211,6 @@ export default function DashboardPage() {
                   <div className="text-xs text-gray-400">{ds.obra?.cliente} · {ds.obra?.responsavel_nome}</div>
                 </div>
                 <div className="flex items-center gap-3">
-                  <span className="font-semibold text-[#111]">{ds.valor_total}</span>
                   <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${sc.bgColor} ${sc.textColor}`}>
                     <div className={`w-1.5 h-1.5 rounded-full ${sc.dotColor}`} />
                     {sc.label}

@@ -10,13 +10,6 @@ import Header from '@/components/layout/Header'
 import { Obra, TipoDS } from '@/types'
 import { TIPO_CONFIG, autoMatchTipo } from '@/lib/utils'
 
-function formatBRL(raw: string) {
-  const digits = raw.replace(/\D/g, '')
-  if (!digits) return ''
-  const num = parseInt(digits, 10) / 100
-  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
-
 function mesAtual() {
   return new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
     .replace(/^\w/, c => c.toUpperCase())
@@ -45,7 +38,6 @@ interface Item {
   file: File
   obraId: string
   mes: string
-  valor: string
   tipo: TipoDS
 }
 
@@ -80,7 +72,6 @@ export default function DSMassaPage() {
       file,
       obraId: autoMatchObra(file.name, obras),
       mes: mesGlobal,
-      valor: '',
       tipo: autoMatchTipo(file.name),
     }))
     setItems(prev => [...prev, ...novos])
@@ -99,7 +90,7 @@ export default function DSMassaPage() {
     setItems(prev => prev.map(i => ({ ...i, mes })))
   }
 
-  const valido = items.length > 0 && items.every(i => i.obraId && i.mes && i.valor)
+  const valido = items.length > 0 && items.every(i => i.obraId && i.mes)
 
   const criarTodas = async () => {
     if (!valido) return
@@ -112,7 +103,7 @@ export default function DSMassaPage() {
       // Criar DS
       const { data: novaDS, error } = await supabase
         .from('descricoes_servico')
-        .insert({ obra_id: item.obraId, mes_referencia: item.mes, valor_total: item.valor, status: 'Gerada', tipo: item.tipo })
+        .insert({ obra_id: item.obraId, mes_referencia: item.mes, status: 'Gerada', tipo: item.tipo })
         .select()
         .single()
 
@@ -202,17 +193,16 @@ export default function DSMassaPage() {
         {items.length > 0 && (
           <div className="flex flex-col gap-3 mb-6">
             {/* Cabeçalho */}
-            <div className="grid grid-cols-[1fr_200px_140px_160px_160px_36px] gap-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wide">
+            <div className="grid grid-cols-[1fr_200px_140px_160px_36px] gap-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wide">
               <span>Arquivo</span>
               <span>Obra</span>
               <span>Tipo</span>
               <span>Mês</span>
-              <span>Valor total</span>
               <span />
             </div>
 
             {items.map(item => (
-              <div key={item.id} className="bg-white rounded-xl border border-gray-100 p-4 grid grid-cols-[1fr_200px_140px_160px_160px_36px] gap-3 items-center">
+              <div key={item.id} className="bg-white rounded-xl border border-gray-100 p-4 grid grid-cols-[1fr_200px_140px_160px_36px] gap-3 items-center">
                 {/* Nome arquivo */}
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-8 h-10 bg-[#E87722] rounded flex items-center justify-center flex-shrink-0">
@@ -257,17 +247,6 @@ export default function DSMassaPage() {
                   className="border border-gray-200 rounded-lg px-2 py-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#8BAB3E]"
                 />
 
-                {/* Valor */}
-                <input
-                  value={item.valor}
-                  onChange={e => atualizar(item.id, 'valor', formatBRL(e.target.value))}
-                  placeholder="R$ 0,00"
-                  inputMode="numeric"
-                  className={`border rounded-lg px-2 py-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#8BAB3E] ${
-                    item.valor ? 'border-gray-200' : 'border-orange-300 bg-orange-50'
-                  }`}
-                />
-
                 {/* Remover */}
                 <button
                   onClick={() => remover(item.id)}
@@ -297,8 +276,8 @@ export default function DSMassaPage() {
         {items.length > 0 && (
           <div className="flex items-center justify-between">
             <p className="text-sm text-gray-500">
-              {items.length} {items.length === 1 ? 'arquivo' : 'arquivos'} · {items.filter(i => !i.obraId || !i.valor).length > 0
-                ? <span className="text-orange-500">{items.filter(i => !i.obraId || !i.valor).length} pendentes de preenchimento</span>
+              {items.length} {items.length === 1 ? 'arquivo' : 'arquivos'} · {items.filter(i => !i.obraId).length > 0
+                ? <span className="text-orange-500">{items.filter(i => !i.obraId).length} pendentes de preenchimento</span>
                 : <span className="text-green-600">todos prontos</span>}
             </p>
             <button

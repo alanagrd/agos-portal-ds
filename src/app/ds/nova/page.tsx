@@ -10,18 +10,10 @@ import Header from '@/components/layout/Header'
 import { Obra, TipoDS } from '@/types'
 import { TIPO_CONFIG } from '@/lib/utils'
 
-function formatBRL(raw: string) {
-  const digits = raw.replace(/\D/g, '')
-  if (!digits) return ''
-  const num = parseInt(digits, 10) / 100
-  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
-
 export default function NovaDSPage() {
   const [obras, setObras] = useState<Obra[]>([])
   const [obraId, setObraId] = useState('')
   const [mes, setMes] = useState('')
-  const [valor, setValor] = useState('')
   const [tipo, setTipo] = useState<TipoDS>('OUTROS')
   const [arquivo, setArquivo] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
@@ -42,13 +34,13 @@ export default function NovaDSPage() {
   }, [])
 
   const handleSubmit = async () => {
-    if (!obraId || !mes || !valor) return
+    if (!obraId || !mes) return
     setLoading(true)
 
     // Criar DS
     const { data: novaDS, error } = await supabase
       .from('descricoes_servico')
-      .insert({ obra_id: obraId, mes_referencia: mes, valor_total: valor, status: 'Gerada', tipo })
+      .insert({ obra_id: obraId, mes_referencia: mes, status: 'Gerada', tipo })
       .select()
       .single()
 
@@ -89,7 +81,7 @@ export default function NovaDSPage() {
     router.push(`/ds/${novaDS.id}`)
   }
 
-  const valido = obraId && mes && valor
+  const valido = obraId && mes
 
   return (
     <div className="min-h-screen bg-[#F8F9FB]">
@@ -139,17 +131,6 @@ export default function NovaDSPage() {
                   <option key={t} value={t}>{TIPO_CONFIG[t as TipoDS].label}</option>
                 ))}
               </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">Valor total</label>
-              <input
-                value={valor}
-                onChange={e => setValor(formatBRL(e.target.value))}
-                placeholder="R$ 0,00"
-                inputMode="numeric"
-                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#8BAB3E]"
-              />
             </div>
 
             <div>

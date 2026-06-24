@@ -10,13 +10,6 @@ import Header from '@/components/layout/Header'
 import { DescricaoServico, HistoricoAcao, VersaoPDF, StatusDS, TipoDS } from '@/types'
 import { STATUS_CONFIG, TIPO_CONFIG, formatDate } from '@/lib/utils'
 
-function formatBRL(raw: string) {
-  const digits = raw.replace(/\D/g, '')
-  if (!digits) return ''
-  const num = parseInt(digits, 10) / 100
-  return num.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
-
 export default function DSDetalhePage({ params }: { params: { id: string } }) {
   const [ds, setDs] = useState<DescricaoServico | null>(null)
   const [historico, setHistorico] = useState<HistoricoAcao[]>([])
@@ -26,11 +19,6 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
   const [uploading, setUploading] = useState(false)
   const [userName, setUserName] = useState('AGOS')
   const [nomeCompleto, setNomeCompleto] = useState('AGOS')
-
-  // Editar valor
-  const [editandoValor, setEditandoValor] = useState(false)
-  const [novoValor, setNovoValor] = useState('')
-  const [salvandoValor, setSalvandoValor] = useState(false)
 
   const router = useRouter()
   const supabase = createClient()
@@ -119,24 +107,6 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
       tipo: 'interno',
     })
     setComentario('')
-    loadDS()
-  }
-
-  // #4 — Salvar novo valor
-  const salvarValor = async () => {
-    if (!ds || !novoValor) return
-    setSalvandoValor(true)
-    const valorFormatado = formatBRL(novoValor.replace(/\D/g, '') || '0')
-    await supabase.from('descricoes_servico').update({ valor_total: valorFormatado }).eq('id', ds.id)
-    await supabase.from('historico_acoes').insert({
-      ds_id: ds.id,
-      acao: `Valor atualizado para ${valorFormatado}.`,
-      autor: userName,
-      tipo: 'interno',
-    })
-    setEditandoValor(false)
-    setNovoValor('')
-    setSalvandoValor(false)
     loadDS()
   }
 
@@ -253,43 +223,8 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
                   <p className="text-sm text-gray-500 mt-0.5">{ds.obra?.cliente} · {ds.mes_referencia}</p>
                 </div>
 
-                {/* #4 — Valor editável */}
                 <div className="text-right">
-                  {editandoValor ? (
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={novoValor}
-                        onChange={e => setNovoValor(formatBRL(e.target.value))}
-                        placeholder="R$ 0,00"
-                        className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm text-right w-36 focus:outline-none focus:ring-2 focus:ring-[#8BAB3E]"
-                        autoFocus
-                      />
-                      <button
-                        onClick={salvarValor}
-                        disabled={salvandoValor || !novoValor}
-                        className="text-xs bg-[#8BAB3E] text-white px-3 py-1.5 rounded-lg disabled:opacity-50"
-                      >
-                        {salvandoValor ? '...' : 'Salvar'}
-                      </button>
-                      <button onClick={() => { setEditandoValor(false); setNovoValor('') }} className="text-xs text-gray-400 hover:text-gray-600">
-                        ✕
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2 justify-end">
-                      <div className="text-2xl font-bold text-[#111]">{ds.valor_total}</div>
-                      {ds.status !== 'Aprovada' && (
-                        <button
-                          onClick={() => { setEditandoValor(true); setNovoValor(ds.valor_total) }}
-                          className="text-xs text-gray-400 hover:text-gray-600 border border-gray-200 rounded px-2 py-1"
-                        >
-                          ✏️
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium mt-2 ${sc.bgColor} ${sc.textColor}`}>
+                  <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${sc.bgColor} ${sc.textColor}`}>
                     <div className={`w-1.5 h-1.5 rounded-full ${sc.dotColor}`} />
                     {sc.label}
                   </div>

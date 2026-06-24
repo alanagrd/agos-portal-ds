@@ -149,12 +149,6 @@ export default function AprovarPage({ params }: { params: { token: string } }) {
           <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Descrição de Serviços para aprovação</p>
           <h1 className="text-xl font-bold text-[#111]">{ds.obra?.nome}</h1>
           <p className="text-sm text-gray-500 mt-0.5">{ds.obra?.cliente} · {ds.mes_referencia}</p>
-          <div className="mt-4 flex items-center gap-4">
-            <div>
-              <p className="text-xs text-gray-400">Valor total</p>
-              <p className="text-2xl font-bold text-[#111]">{ds.valor_total}</p>
-            </div>
-          </div>
 
           {/* PDF */}
           {versao ? (

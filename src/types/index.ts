@@ -26,7 +26,6 @@ export interface DescricaoServico {
   id: string;
   obra_id: string;
   mes_referencia: string;
-  valor_total: string;
   status: StatusDS;
   tipo: TipoDS;
   token_aprovacao: string;
