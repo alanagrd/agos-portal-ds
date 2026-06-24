@@ -72,7 +72,7 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
       autor: userName,
       tipo: 'sistema',
     })
-    loadDS()
+    router.push('/dashboard')
   }
 
   // "Em análise interna" -> "Aguardando aprovação da obra"
