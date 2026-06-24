@@ -7,7 +7,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import Header from '@/components/layout/Header'
-import { Obra } from '@/types'
+import { Obra, TipoDS } from '@/types'
+import { TIPO_CONFIG } from '@/lib/utils'
 
 function formatBRL(raw: string) {
   const digits = raw.replace(/\D/g, '')
@@ -21,6 +22,7 @@ export default function NovaDSPage() {
   const [obraId, setObraId] = useState('')
   const [mes, setMes] = useState('')
   const [valor, setValor] = useState('')
+  const [tipo, setTipo] = useState<TipoDS>('OUTROS')
   const [arquivo, setArquivo] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
   const [userName, setUserName] = useState('AGOS')
@@ -46,7 +48,7 @@ export default function NovaDSPage() {
     // Criar DS
     const { data: novaDS, error } = await supabase
       .from('descricoes_servico')
-      .insert({ obra_id: obraId, mes_referencia: mes, valor_total: valor, status: 'Gerada' })
+      .insert({ obra_id: obraId, mes_referencia: mes, valor_total: valor, status: 'Gerada', tipo })
       .select()
       .single()
 
@@ -124,6 +126,19 @@ export default function NovaDSPage() {
                 placeholder="Ex: Junho/2026"
                 className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#8BAB3E]"
               />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">Tipo</label>
+              <select
+                value={tipo}
+                onChange={e => setTipo(e.target.value as TipoDS)}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#8BAB3E]"
+              >
+                {Object.keys(TIPO_CONFIG).map(t => (
+                  <option key={t} value={t}>{TIPO_CONFIG[t as TipoDS].label}</option>
+                ))}
+              </select>
             </div>
 
             <div>

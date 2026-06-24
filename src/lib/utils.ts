@@ -1,4 +1,4 @@
-import { StatusDS } from '@/types'
+import { StatusDS, TipoDS } from '@/types'
 
 export const STATUS_CONFIG: Record<StatusDS, {
   label: string
@@ -48,6 +48,37 @@ export const STATUS_CONFIG: Record<StatusDS, {
     dotColor: 'bg-[#8BAB3E]',
     btnLabel: null,
   },
+}
+
+export const TIPO_CONFIG: Record<TipoDS, { label: string; bgColor: string; textColor: string }> = {
+  'VALE': {
+    label: 'Vale',
+    bgColor: 'bg-blue-50',
+    textColor: 'text-blue-700',
+  },
+  'FECHAMENTO': {
+    label: 'Fechamento',
+    bgColor: 'bg-green-50',
+    textColor: 'text-[#8BAB3E]',
+  },
+  'DISPENSA': {
+    label: 'Dispensa',
+    bgColor: 'bg-purple-50',
+    textColor: 'text-purple-700',
+  },
+  'OUTROS': {
+    label: 'Outros',
+    bgColor: 'bg-gray-100',
+    textColor: 'text-gray-600',
+  },
+}
+
+export function autoMatchTipo(filename: string): TipoDS {
+  const nome = filename.toUpperCase()
+  if (nome.includes('VALE')) return 'VALE'
+  if (nome.includes('FECHAMENTO')) return 'FECHAMENTO'
+  if (nome.includes('DISPENSAS') || nome.includes('DISPENSA')) return 'DISPENSA'
+  return 'OUTROS'
 }
 
 export function formatDate(dateString: string) {

@@ -5,6 +5,12 @@ export type StatusDS =
   | 'Aguardando aprovação da obra'
   | 'Aprovada';
 
+export type TipoDS =
+  | 'VALE'
+  | 'FECHAMENTO'
+  | 'DISPENSA'
+  | 'OUTROS';
+
 export interface Obra {
   id: string;
   nome: string;
@@ -22,6 +28,7 @@ export interface DescricaoServico {
   mes_referencia: string;
   valor_total: string;
   status: StatusDS;
+  tipo: TipoDS;
   token_aprovacao: string;
   criado_em: string;
   atualizado_em: string;

@@ -7,8 +7,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import Header from '@/components/layout/Header'
-import { DescricaoServico, StatusDS } from '@/types'
-import { STATUS_CONFIG, formatDate, getCompetenciaAtual, normalizarCompetencia, compararCompetencias } from '@/lib/utils'
+import { DescricaoServico, StatusDS, TipoDS } from '@/types'
+import { STATUS_CONFIG, TIPO_CONFIG, formatDate, getCompetenciaAtual, normalizarCompetencia, compararCompetencias } from '@/lib/utils'
 
 export default function DashboardPage() {
   const [dsList, setDsList] = useState<DescricaoServico[]>([])
@@ -16,6 +16,8 @@ export default function DashboardPage() {
   const [filtroStatus, setFiltroStatus] = useState<string>('todos')
   const [filtroObra, setFiltroObra] = useState<string>('todas')
   const [filtroCompetencia, setFiltroCompetencia] = useState<string>(getCompetenciaAtual())
+  const [userName, setUserName] = useState('AGOS')
+  const [processando, setProcessando] = useState<string | null>(null)
   const router = useRouter()
   const supabase = createClient()
 
@@ -26,6 +28,7 @@ export default function DashboardPage() {
   const loadDS = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/auth/login'); return }
+    setUserName(user.email?.split('@')[0] || 'AGOS')
 
     const { data, error } = await supabase
       .from('descricoes_servico')
@@ -34,6 +37,39 @@ export default function DashboardPage() {
 
     if (!error && data) setDsList(data)
     setLoading(false)
+  }
+
+  const excluirDS = async (ds: DescricaoServico) => {
+    if (!confirm('Tem certeza que deseja excluir esta DS?')) return
+    setProcessando(ds.id)
+
+    await supabase.from('historico_acoes').delete().eq('ds_id', ds.id)
+    await supabase.from('versoes_pdf').delete().eq('ds_id', ds.id)
+    await supabase.from('descricoes_servico').delete().eq('id', ds.id)
+
+    const { data: arquivos } = await supabase.storage.from('ds-pdfs').list(ds.id)
+    if (arquivos && arquivos.length > 0) {
+      await supabase.storage.from('ds-pdfs').remove(arquivos.map(a => `${ds.id}/${a.name}`))
+    }
+
+    setProcessando(null)
+    loadDS()
+  }
+
+  const aprovarDS = async (ds: DescricaoServico) => {
+    if (!confirm('Confirma a aprovação desta DS?')) return
+    setProcessando(ds.id)
+
+    await supabase.from('descricoes_servico').update({ status: 'Aprovada' }).eq('id', ds.id)
+    await supabase.from('historico_acoes').insert({
+      ds_id: ds.id,
+      acao: 'DS aprovada pelo escritório.',
+      autor: userName,
+      tipo: 'sistema',
+    })
+
+    setProcessando(null)
+    loadDS()
   }
 
   const obras = Array.from(new Map(dsList.map(ds => [ds.obra_id, ds.obra])).values())
@@ -156,29 +192,51 @@ export default function DashboardPage() {
           )}
           {dsFiltradas.map(ds => {
             const sc = STATUS_CONFIG[ds.status as StatusDS]
+            const tc = TIPO_CONFIG[ds.tipo as TipoDS] || TIPO_CONFIG.OUTROS
             return (
-              <Link
+              <div
                 key={ds.id}
-                href={`/ds/${ds.id}`}
+                onClick={() => router.push(`/ds/${ds.id}`)}
                 className="bg-white rounded-xl border border-gray-100 px-6 py-4 flex items-center justify-between hover:shadow-sm transition-shadow cursor-pointer"
               >
                 <div>
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-semibold text-[#111]">{ds.obra?.nome}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${tc.bgColor} ${tc.textColor}`}>
+                      {tc.label}
+                    </span>
                     <span className="text-gray-300">·</span>
                     <span className="text-sm text-gray-500">{ds.mes_referencia}</span>
                   </div>
                   <div className="text-xs text-gray-400">{ds.obra?.cliente} · {ds.obra?.responsavel_nome}</div>
                 </div>
-                <div className="flex items-center gap-5">
+                <div className="flex items-center gap-3">
                   <span className="font-semibold text-[#111]">{ds.valor_total}</span>
                   <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${sc.bgColor} ${sc.textColor}`}>
                     <div className={`w-1.5 h-1.5 rounded-full ${sc.dotColor}`} />
                     {sc.label}
                   </div>
+                  {ds.status === 'Aguardando aprovação da obra' && (
+                    <button
+                      onClick={e => { e.stopPropagation(); aprovarDS(ds) }}
+                      disabled={processando === ds.id}
+                      title="Aprovar"
+                      className="w-8 h-8 flex items-center justify-center rounded-lg text-[#8BAB3E] hover:bg-green-50 transition-colors disabled:opacity-40"
+                    >
+                      ✓
+                    </button>
+                  )}
+                  <button
+                    onClick={e => { e.stopPropagation(); excluirDS(ds) }}
+                    disabled={processando === ds.id}
+                    title="Excluir"
+                    className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+                  >
+                    🗑
+                  </button>
                   <span className="text-gray-300 text-lg">›</span>
                 </div>
-              </Link>
+              </div>
             )
           })}
         </div>

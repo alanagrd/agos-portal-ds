@@ -7,7 +7,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import Header from '@/components/layout/Header'
-import { Obra } from '@/types'
+import { Obra, TipoDS } from '@/types'
+import { TIPO_CONFIG, autoMatchTipo } from '@/lib/utils'
 
 function formatBRL(raw: string) {
   const digits = raw.replace(/\D/g, '')
@@ -45,6 +46,7 @@ interface Item {
   obraId: string
   mes: string
   valor: string
+  tipo: TipoDS
 }
 
 export default function DSMassaPage() {
@@ -79,11 +81,12 @@ export default function DSMassaPage() {
       obraId: autoMatchObra(file.name, obras),
       mes: mesGlobal,
       valor: '',
+      tipo: autoMatchTipo(file.name),
     }))
     setItems(prev => [...prev, ...novos])
   }
 
-  const atualizar = (id: string, campo: keyof Item, valor: string) => {
+  const atualizar = (id: string, campo: Exclude<keyof Item, 'id' | 'file'>, valor: string | TipoDS) => {
     setItems(prev => prev.map(i => i.id === id ? { ...i, [campo]: valor } : i))
   }
 
@@ -109,7 +112,7 @@ export default function DSMassaPage() {
       // Criar DS
       const { data: novaDS, error } = await supabase
         .from('descricoes_servico')
-        .insert({ obra_id: item.obraId, mes_referencia: item.mes, valor_total: item.valor, status: 'Gerada' })
+        .insert({ obra_id: item.obraId, mes_referencia: item.mes, valor_total: item.valor, status: 'Gerada', tipo: item.tipo })
         .select()
         .single()
 
@@ -199,16 +202,17 @@ export default function DSMassaPage() {
         {items.length > 0 && (
           <div className="flex flex-col gap-3 mb-6">
             {/* Cabeçalho */}
-            <div className="grid grid-cols-[1fr_200px_160px_160px_36px] gap-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wide">
+            <div className="grid grid-cols-[1fr_200px_140px_160px_160px_36px] gap-3 px-4 text-xs font-medium text-gray-400 uppercase tracking-wide">
               <span>Arquivo</span>
               <span>Obra</span>
+              <span>Tipo</span>
               <span>Mês</span>
               <span>Valor total</span>
               <span />
             </div>
 
             {items.map(item => (
-              <div key={item.id} className="bg-white rounded-xl border border-gray-100 p-4 grid grid-cols-[1fr_200px_160px_160px_36px] gap-3 items-center">
+              <div key={item.id} className="bg-white rounded-xl border border-gray-100 p-4 grid grid-cols-[1fr_200px_140px_160px_160px_36px] gap-3 items-center">
                 {/* Nome arquivo */}
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-8 h-10 bg-[#E87722] rounded flex items-center justify-center flex-shrink-0">
@@ -231,6 +235,17 @@ export default function DSMassaPage() {
                   <option value="">Selecione a obra</option>
                   {obras.map(o => (
                     <option key={o.id} value={o.id}>{o.nome}</option>
+                  ))}
+                </select>
+
+                {/* Tipo */}
+                <select
+                  value={item.tipo}
+                  onChange={e => atualizar(item.id, 'tipo', e.target.value as TipoDS)}
+                  className="border border-gray-200 rounded-lg px-2 py-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#8BAB3E]"
+                >
+                  {Object.keys(TIPO_CONFIG).map(t => (
+                    <option key={t} value={t}>{TIPO_CONFIG[t as TipoDS].label}</option>
                   ))}
                 </select>
 

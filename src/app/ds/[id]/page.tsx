@@ -7,8 +7,8 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import Header from '@/components/layout/Header'
-import { DescricaoServico, HistoricoAcao, VersaoPDF, StatusDS } from '@/types'
-import { STATUS_CONFIG, formatDate } from '@/lib/utils'
+import { DescricaoServico, HistoricoAcao, VersaoPDF, StatusDS, TipoDS } from '@/types'
+import { STATUS_CONFIG, TIPO_CONFIG, formatDate } from '@/lib/utils'
 
 function formatBRL(raw: string) {
   const digits = raw.replace(/\D/g, '')
@@ -225,7 +225,12 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
             <div className="bg-white rounded-xl border border-gray-100 p-6">
               <div className="flex justify-between items-start mb-5">
                 <div>
-                  <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Descrição de Serviços</p>
+                  <div className="flex items-center gap-2 mb-1">
+                    <p className="text-xs text-gray-400 uppercase tracking-wide">Descrição de Serviços</p>
+                    <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${TIPO_CONFIG[ds.tipo as TipoDS]?.bgColor} ${TIPO_CONFIG[ds.tipo as TipoDS]?.textColor}`}>
+                      {TIPO_CONFIG[ds.tipo as TipoDS]?.label}
+                    </span>
+                  </div>
                   <h1 className="text-xl font-bold text-[#111]">{ds.obra?.nome}</h1>
                   <p className="text-sm text-gray-500 mt-0.5">{ds.obra?.cliente} · {ds.mes_referencia}</p>
                 </div>
