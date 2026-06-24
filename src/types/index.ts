@@ -52,5 +52,12 @@ export interface HistoricoAcao {
   acao: string;
   autor: string;
   tipo: 'sistema' | 'interno' | 'cliente';
+  resolvido?: boolean;
   criado_em: string;
+}
+
+export interface UsuarioAgos {
+  id: string;
+  nome: string;
+  email: string;
 }

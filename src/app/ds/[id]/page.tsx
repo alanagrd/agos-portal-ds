@@ -25,6 +25,7 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
   const [comentario, setComentario] = useState('')
   const [uploading, setUploading] = useState(false)
   const [userName, setUserName] = useState('AGOS')
+  const [nomeCompleto, setNomeCompleto] = useState('AGOS')
 
   // Editar valor
   const [editandoValor, setEditandoValor] = useState(false)
@@ -39,7 +40,15 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
   const loadDS = async () => {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/auth/login'); return }
-    setUserName(user.email?.split('@')[0] || 'AGOS')
+    const emailFallback = user.email?.split('@')[0] || 'AGOS'
+    setUserName(emailFallback)
+
+    const { data: usuarioAgos } = await supabase
+      .from('usuarios_agos')
+      .select('nome')
+      .eq('id', user.id)
+      .single()
+    setNomeCompleto(usuarioAgos?.nome || emailFallback)
 
     const { data: dsData } = await supabase
       .from('descricoes_servico')
@@ -85,12 +94,17 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
     await supabase.from('historico_acoes').insert({
       ds_id: ds.id,
       acao: comentario.trim()
-        ? `DS aprovada internamente: "${comentario.trim()}". Enviada para aprovação da obra. Link enviado para ${ds.obra?.responsavel_email}.`
-        : `DS aprovada internamente. Enviada para aprovação da obra. Link enviado para ${ds.obra?.responsavel_email}.`,
-      autor: userName,
+        ? `DS aprovada internamente por ${nomeCompleto}: "${comentario.trim()}". Enviada para aprovação da obra. Link enviado para ${ds.obra?.responsavel_email}.`
+        : `DS aprovada internamente por ${nomeCompleto}. Enviada para aprovação da obra. Link enviado para ${ds.obra?.responsavel_email}.`,
+      autor: nomeCompleto,
       tipo: 'sistema',
     })
     setComentario('')
+    loadDS()
+  }
+
+  const marcarResolvida = async (id: string) => {
+    await supabase.from('historico_acoes').update({ resolvido: true }).eq('id', id)
     loadDS()
   }
 
@@ -207,6 +221,10 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
   const sc = STATUS_CONFIG[ds.status as StatusDS]
   const ultimaVersao = versoes[0]
 
+  const alteracoesPendentes = historico.filter(h => h.acao.startsWith('Alteração solicitada') && !h.resolvido)
+  const aprovacaoInterna = [...historico].reverse().find(h => h.acao.startsWith('DS aprovada internamente'))
+  const extrairTexto = (acao: string) => acao.match(/"([^"]+)"/)?.[1] || acao
+
   return (
     <div className="min-h-screen bg-[#F8F9FB]">
       <Header />
@@ -275,6 +293,11 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
                     <div className={`w-1.5 h-1.5 rounded-full ${sc.dotColor}`} />
                     {sc.label}
                   </div>
+                  {aprovacaoInterna && (
+                    <p className="text-xs text-[#8BAB3E] font-medium mt-2">
+                      ✓ Aprovado por {aprovacaoInterna.acao.match(/^DS aprovada internamente por (.+?)(:|\.|$)/)?.[1] || aprovacaoInterna.autor} · {formatDate(aprovacaoInterna.criado_em)}
+                    </p>
+                  )}
                 </div>
               </div>
 
@@ -365,6 +388,36 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
                 </div>
               )}
             </div>
+
+            {/* Alterações solicitadas */}
+            {alteracoesPendentes.length > 0 && (
+              <div className="bg-white rounded-xl border-2 border-[#E87722] p-5">
+                <p className="text-sm font-bold text-[#E87722] mb-3">
+                  ⚠️ Alterações solicitadas ({alteracoesPendentes.length})
+                </p>
+                <div className="flex flex-col gap-3">
+                  {alteracoesPendentes.map(ev => (
+                    <div key={ev.id} className="bg-orange-50 rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                          ev.tipo === 'cliente' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+                        }`}>
+                          {ev.tipo === 'cliente' ? 'Obra' : 'ADM Interno'}
+                        </span>
+                        <span className="text-xs text-gray-400">{ev.autor} · {formatDate(ev.criado_em)}</span>
+                      </div>
+                      <p className="text-sm text-gray-700 mb-3">{extrairTexto(ev.acao)}</p>
+                      <button
+                        onClick={() => marcarResolvida(ev.id)}
+                        className="text-xs font-semibold text-[#E87722] border border-[#E87722] hover:bg-orange-100 rounded-lg px-3 py-1.5 transition-colors"
+                      >
+                        Marcar como resolvida
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Observação interna */}
             {ds.status !== 'Aprovada' && ds.status !== 'Em análise interna' && (
