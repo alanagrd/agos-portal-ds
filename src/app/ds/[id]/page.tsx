@@ -98,6 +98,20 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
     loadDS()
   }
 
+  // "Aguardando aprovação da obra" -> "Em análise interna"
+  const retornarParaAnaliseInterna = async () => {
+    if (!ds) return
+    if (!confirm('Tem certeza que deseja retornar esta DS para análise interna?')) return
+    await supabase.from('descricoes_servico').update({ status: 'Em análise interna' }).eq('id', ds.id)
+    await supabase.from('historico_acoes').insert({
+      ds_id: ds.id,
+      acao: `DS retornada para análise interna por ${nomeCompleto}.`,
+      autor: nomeCompleto,
+      tipo: 'sistema',
+    })
+    loadDS()
+  }
+
   const adicionarLinhaAlteracao = () => {
     setLinhasAlteracao(prev => [...prev, { id: crypto.randomUUID(), nome: '', alteracao: '' }])
   }
@@ -410,8 +424,16 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
               )}
 
               {ds.status === 'Aguardando aprovação da obra' && (
-                <div className="mt-4 bg-blue-50 rounded-lg p-3 text-sm text-blue-700">
-                  Link enviado para <strong>{ds.obra?.responsavel_nome}</strong> ({ds.obra?.responsavel_email}). Aguardando resposta da obra.
+                <div className="mt-4 flex flex-col gap-2">
+                  <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-700">
+                    Link enviado para <strong>{ds.obra?.responsavel_nome}</strong> ({ds.obra?.responsavel_email}). Aguardando resposta da obra.
+                  </div>
+                  <button
+                    onClick={retornarParaAnaliseInterna}
+                    className="self-start text-xs text-gray-500 border border-gray-200 hover:bg-gray-50 font-medium px-3 py-1.5 rounded-lg transition-colors"
+                  >
+                    ↩ Retornar para análise interna
+                  </button>
                 </div>
               )}
 
