@@ -197,7 +197,9 @@ export default function DashboardPage() {
               <div
                 key={ds.id}
                 onClick={() => router.push(`/ds/${ds.id}`)}
-                className="bg-white rounded-xl border border-gray-100 px-6 py-4 flex items-center justify-between hover:shadow-sm transition-shadow cursor-pointer"
+                className={`rounded-xl border px-6 py-4 flex items-center justify-between hover:shadow-sm transition-shadow cursor-pointer ${
+                  ds.status === 'Alteração solicitada' ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-100'
+                }`}
               >
                 <div>
                   <div className="flex items-center gap-2 mb-1">
