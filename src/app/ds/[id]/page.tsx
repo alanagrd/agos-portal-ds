@@ -19,6 +19,7 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
   const [uploading, setUploading] = useState(false)
   const [userName, setUserName] = useState('AGOS')
   const [nomeCompleto, setNomeCompleto] = useState('AGOS')
+  const [mostrarResolvidas, setMostrarResolvidas] = useState(false)
 
   const router = useRouter()
   const supabase = createClient()
@@ -191,7 +192,9 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
   const sc = STATUS_CONFIG[ds.status as StatusDS]
   const ultimaVersao = versoes[0]
 
-  const alteracoesPendentes = historico.filter(h => h.acao.startsWith('Alteração solicitada') && !h.resolvido)
+  const todasAlteracoes = historico.filter(h => h.acao.startsWith('Alteração solicitada'))
+  const alteracoesPendentes = todasAlteracoes.filter(h => !h.resolvido)
+  const alteracoesResolvidas = todasAlteracoes.filter(h => h.resolvido)
   const aprovacaoInterna = [...historico].reverse().find(h => h.acao.startsWith('DS aprovada internamente'))
   const extrairTexto = (acao: string) => acao.match(/"([^"]+)"/)?.[1] || acao
 
@@ -325,32 +328,66 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
             </div>
 
             {/* Alterações solicitadas */}
-            {alteracoesPendentes.length > 0 && (
-              <div className="bg-white rounded-xl border-2 border-[#E87722] p-5">
-                <p className="text-sm font-bold text-[#E87722] mb-3">
-                  ⚠️ Alterações solicitadas ({alteracoesPendentes.length})
-                </p>
-                <div className="flex flex-col gap-3">
-                  {alteracoesPendentes.map(ev => (
-                    <div key={ev.id} className="bg-orange-50 rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
-                          ev.tipo === 'cliente' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
-                        }`}>
-                          {ev.tipo === 'cliente' ? 'Obra' : 'ADM Interno'}
-                        </span>
-                        <span className="text-xs text-gray-400">{ev.autor} · {formatDate(ev.criado_em)}</span>
+            {todasAlteracoes.length > 0 && (
+              <div className={`bg-white rounded-xl border-2 p-5 ${alteracoesPendentes.length > 0 ? 'border-[#E87722]' : 'border-gray-100'}`}>
+                {alteracoesPendentes.length > 0 && (
+                  <p className="text-sm font-bold text-[#E87722] mb-3">
+                    ⚠️ Alterações solicitadas ({alteracoesPendentes.length})
+                  </p>
+                )}
+                {alteracoesPendentes.length > 0 && (
+                  <div className="flex flex-col gap-3">
+                    {alteracoesPendentes.map(ev => (
+                      <div key={ev.id} className="bg-orange-50 rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                            ev.tipo === 'cliente' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            {ev.tipo === 'cliente' ? 'Obra' : 'ADM Interno'}
+                          </span>
+                          <span className="text-xs text-gray-400">{ev.autor} · {formatDate(ev.criado_em)}</span>
+                        </div>
+                        <p className="text-sm text-gray-700 mb-3">{extrairTexto(ev.acao)}</p>
+                        <button
+                          onClick={() => marcarResolvida(ev.id)}
+                          className="text-xs font-semibold text-[#E87722] border border-[#E87722] hover:bg-orange-100 rounded-lg px-3 py-1.5 transition-colors"
+                        >
+                          Marcar como resolvida
+                        </button>
                       </div>
-                      <p className="text-sm text-gray-700 mb-3">{extrairTexto(ev.acao)}</p>
-                      <button
-                        onClick={() => marcarResolvida(ev.id)}
-                        className="text-xs font-semibold text-[#E87722] border border-[#E87722] hover:bg-orange-100 rounded-lg px-3 py-1.5 transition-colors"
-                      >
-                        Marcar como resolvida
-                      </button>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
+
+                {alteracoesResolvidas.length > 0 && (
+                  <div className={alteracoesPendentes.length > 0 ? 'mt-4 pt-4 border-t border-gray-100' : ''}>
+                    <button
+                      onClick={() => setMostrarResolvidas(v => !v)}
+                      className="text-xs font-semibold text-gray-500 hover:text-gray-700 flex items-center gap-1.5"
+                    >
+                      <span>{mostrarResolvidas ? '▾' : '▸'}</span>
+                      {alteracoesResolvidas.length} alteração{alteracoesResolvidas.length > 1 ? 'ões' : ''} já resolvida{alteracoesResolvidas.length > 1 ? 's' : ''}
+                    </button>
+                    {mostrarResolvidas && (
+                      <div className="flex flex-col gap-3 mt-3">
+                        {alteracoesResolvidas.map(ev => (
+                          <div key={ev.id} className="bg-gray-50 rounded-lg p-4">
+                            <div className="flex items-center justify-between mb-2">
+                              <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${
+                                ev.tipo === 'cliente' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
+                              }`}>
+                                {ev.tipo === 'cliente' ? 'Obra' : 'ADM Interno'}
+                              </span>
+                              <span className="text-xs font-medium text-[#8BAB3E]">✓ Resolvida</span>
+                            </div>
+                            <p className="text-sm text-gray-600">{extrairTexto(ev.acao)}</p>
+                            <p className="text-xs text-gray-400 mt-1">{ev.autor} · {formatDate(ev.criado_em)}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
