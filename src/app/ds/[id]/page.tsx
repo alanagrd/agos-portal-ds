@@ -20,6 +20,7 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
   const [userName, setUserName] = useState('AGOS')
   const [nomeCompleto, setNomeCompleto] = useState('AGOS')
   const [mostrarResolvidas, setMostrarResolvidas] = useState(false)
+  const [linhasAlteracao, setLinhasAlteracao] = useState<{ id: string; nome: string; alteracao: string }[]>([])
 
   const router = useRouter()
   const supabase = createClient()
@@ -97,17 +98,35 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
     loadDS()
   }
 
+  const adicionarLinhaAlteracao = () => {
+    setLinhasAlteracao(prev => [...prev, { id: crypto.randomUUID(), nome: '', alteracao: '' }])
+  }
+
+  const atualizarLinhaAlteracao = (id: string, campo: 'nome' | 'alteracao', valor: string) => {
+    setLinhasAlteracao(prev => prev.map(l => l.id === id ? { ...l, [campo]: valor } : l))
+  }
+
+  const removerLinhaAlteracao = (id: string) => {
+    setLinhasAlteracao(prev => prev.filter(l => l.id !== id))
+  }
+
+  const linhasAlteracaoValidas = linhasAlteracao.length > 0 && linhasAlteracao.every(l => l.nome.trim() && l.alteracao.trim())
+
+  const serializarAlteracoes = (linhas: { nome: string; alteracao: string }[]) =>
+    linhas.map((l, i) => `${i + 1}. [${l.nome.trim()}]\n   → [${l.alteracao.trim()}]`).join('\n\n')
+
   // "Em análise interna" -> "Alteração solicitada"
   const solicitarAlteracao = async () => {
-    if (!ds || !comentario.trim()) return
+    if (!ds || !linhasAlteracaoValidas) return
+    const texto = serializarAlteracoes(linhasAlteracao)
     await supabase.from('descricoes_servico').update({ status: 'Alteração solicitada' }).eq('id', ds.id)
     await supabase.from('historico_acoes').insert({
       ds_id: ds.id,
-      acao: `Alteração solicitada internamente: "${comentario.trim()}"`,
+      acao: `Alteração solicitada internamente:\n${texto}`,
       autor: userName,
       tipo: 'interno',
     })
-    setComentario('')
+    setLinhasAlteracao([])
     loadDS()
   }
 
@@ -196,7 +215,41 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
   const alteracoesPendentes = todasAlteracoes.filter(h => !h.resolvido)
   const alteracoesResolvidas = todasAlteracoes.filter(h => h.resolvido)
   const aprovacaoInterna = [...historico].reverse().find(h => h.acao.startsWith('DS aprovada internamente'))
-  const extrairTexto = (acao: string) => acao.match(/"([^"]+)"/)?.[1] || acao
+
+  const extrairTexto = (acao: string) => {
+    const citado = acao.match(/"([^"]+)"/)
+    if (citado) return citado[1]
+    const idx = acao.indexOf(':')
+    return idx >= 0 ? acao.slice(idx + 1).trim() : acao
+  }
+
+  const parseAlteracoesEstruturadas = (texto: string) => {
+    const itens: { nome: string; alteracao: string }[] = []
+    const regex = /\d+\.\s*\[([^\]]*)\]\s*\n\s*→\s*\[([^\]]*)\]/g
+    let m: RegExpExecArray | null
+    while ((m = regex.exec(texto))) {
+      itens.push({ nome: m[1], alteracao: m[2] })
+    }
+    return itens
+  }
+
+  const renderConteudoAlteracao = (acao: string) => {
+    const texto = extrairTexto(acao)
+    const itens = parseAlteracoesEstruturadas(texto)
+    if (itens.length === 0) {
+      return <p className="text-sm text-gray-700">{texto}</p>
+    }
+    return (
+      <div className="flex flex-col gap-2">
+        {itens.map((item, idx) => (
+          <div key={idx} className="bg-white rounded-lg border border-gray-200 p-3">
+            <p className="text-xs font-semibold text-gray-700">{idx + 1}. {item.nome}</p>
+            <p className="text-sm text-gray-600 mt-0.5">→ {item.alteracao}</p>
+          </div>
+        ))}
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-[#F8F9FB]">
@@ -281,25 +334,67 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
 
               {/* Em análise interna -> Aguardando aprovação da obra / Alteração solicitada */}
               {ds.status === 'Em análise interna' && (
-                <div className="mt-4 flex flex-col gap-2">
-                  <textarea
-                    value={comentario}
-                    onChange={e => setComentario(e.target.value)}
-                    placeholder="Observação (obrigatória para solicitar alteração)..."
-                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-[#8BAB3E]"
-                    rows={3}
-                  />
-                  <div className="flex gap-2">
+                <div className="mt-4 flex flex-col gap-4">
+                  {/* Aprovação interna */}
+                  <div className="flex flex-col gap-2">
+                    <textarea
+                      value={comentario}
+                      onChange={e => setComentario(e.target.value)}
+                      placeholder="Observação (opcional)..."
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-[#8BAB3E]"
+                      rows={2}
+                    />
                     <button
                       onClick={aprovarInternamente}
-                      className="flex-1 bg-[#8BAB3E] hover:bg-[#7a9a35] text-white font-semibold py-2.5 rounded-lg text-sm transition-colors"
+                      className="w-full bg-[#8BAB3E] hover:bg-[#7a9a35] text-white font-semibold py-2.5 rounded-lg text-sm transition-colors"
                     >
                       ✓ Aprovar internamente
                     </button>
+                  </div>
+
+                  {/* Solicitar alteração por funcionário */}
+                  <div className="border-t border-gray-100 pt-4">
+                    <p className="text-xs font-semibold text-gray-500 mb-2">Solicitar alteração por funcionário</p>
+                    {linhasAlteracao.length > 0 && (
+                      <div className="flex flex-col gap-2 mb-2">
+                        {linhasAlteracao.map((linha, idx) => (
+                          <div key={linha.id} className="flex gap-2 items-start bg-gray-50 rounded-lg p-3">
+                            <span className="text-xs font-semibold text-gray-400 mt-2.5">{idx + 1}.</span>
+                            <div className="flex-1 flex flex-col gap-2">
+                              <input
+                                value={linha.nome}
+                                onChange={e => atualizarLinhaAlteracao(linha.id, 'nome', e.target.value)}
+                                placeholder="Nome do funcionário"
+                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#E87722]"
+                              />
+                              <input
+                                value={linha.alteracao}
+                                onChange={e => atualizarLinhaAlteracao(linha.id, 'alteracao', e.target.value)}
+                                placeholder="Alteração necessária"
+                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#E87722]"
+                              />
+                            </div>
+                            <button
+                              onClick={() => removerLinhaAlteracao(linha.id)}
+                              className="text-gray-300 hover:text-red-500 mt-2.5"
+                              title="Remover"
+                            >
+                              🗑
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    <button
+                      onClick={adicionarLinhaAlteracao}
+                      className="text-xs font-semibold text-[#8BAB3E] hover:underline"
+                    >
+                      + Adicionar funcionário
+                    </button>
                     <button
                       onClick={solicitarAlteracao}
-                      disabled={!comentario.trim()}
-                      className="flex-1 border border-[#E87722] text-[#E87722] hover:bg-orange-50 disabled:opacity-40 font-semibold py-2.5 rounded-lg text-sm transition-colors"
+                      disabled={!linhasAlteracaoValidas}
+                      className="mt-3 w-full border border-[#E87722] text-[#E87722] hover:bg-orange-50 disabled:opacity-40 font-semibold py-2.5 rounded-lg text-sm transition-colors"
                     >
                       Solicitar alteração
                     </button>
@@ -347,7 +442,7 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
                           </span>
                           <span className="text-xs text-gray-400">{ev.autor} · {formatDate(ev.criado_em)}</span>
                         </div>
-                        <p className="text-sm text-gray-700 mb-3">{extrairTexto(ev.acao)}</p>
+                        <div className="mb-3">{renderConteudoAlteracao(ev.acao)}</div>
                         <button
                           onClick={() => marcarResolvida(ev.id)}
                           className="text-xs font-semibold text-[#E87722] border border-[#E87722] hover:bg-orange-100 rounded-lg px-3 py-1.5 transition-colors"
@@ -380,8 +475,8 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
                               </span>
                               <span className="text-xs font-medium text-[#8BAB3E]">✓ Resolvida</span>
                             </div>
-                            <p className="text-sm text-gray-600">{extrairTexto(ev.acao)}</p>
-                            <p className="text-xs text-gray-400 mt-1">{ev.autor} · {formatDate(ev.criado_em)}</p>
+                            <div className="mb-1">{renderConteudoAlteracao(ev.acao)}</div>
+                            <p className="text-xs text-gray-400">{ev.autor} · {formatDate(ev.criado_em)}</p>
                           </div>
                         ))}
                       </div>
@@ -445,7 +540,7 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
                     {i < historico.length - 1 && <div className="w-px flex-1 bg-gray-100 mt-1" />}
                   </div>
                   <div className="flex-1 pb-1">
-                    <p className={`text-xs leading-relaxed ${
+                    <p className={`text-xs leading-relaxed whitespace-pre-line ${
                       ev.tipo === 'cliente' ? 'text-blue-700 font-medium' :
                       ev.tipo === 'interno' ? 'text-gray-700' : 'text-gray-400'
                     }`}>
