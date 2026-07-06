@@ -51,6 +51,7 @@ export interface HistoricoAcao {
   ds_id: string;
   acao: string;
   autor: string;
+  autor_email?: string;
   tipo: 'sistema' | 'interno' | 'cliente';
   resolvido?: boolean;
   criado_em: string;

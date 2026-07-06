@@ -18,6 +18,7 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
   const [comentario, setComentario] = useState('')
   const [uploading, setUploading] = useState(false)
   const [userName, setUserName] = useState('AGOS')
+  const [userEmail, setUserEmail] = useState('')
   const [nomeCompleto, setNomeCompleto] = useState('AGOS')
   const [mostrarResolvidas, setMostrarResolvidas] = useState(false)
   const [linhasAlteracao, setLinhasAlteracao] = useState<{ id: string; nome: string; alteracao: string }[]>([])
@@ -32,6 +33,7 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
     if (!user) { router.push('/auth/login'); return }
     const emailFallback = user.email?.split('@')[0] || 'AGOS'
     setUserName(emailFallback)
+    setUserEmail(user.email || '')
 
     const { data: usuarioAgos } = await supabase
       .from('usuarios_agos')
@@ -72,6 +74,7 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
       ds_id: ds.id,
       acao: 'DS enviada para análise interna.',
       autor: userName,
+      autor_email: userEmail,
       tipo: 'sistema',
     })
     router.push('/dashboard')
@@ -87,9 +90,24 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
         ? `DS aprovada internamente por ${nomeCompleto}: "${comentario.trim()}". Enviada para aprovação da obra. Link enviado para ${ds.obra?.responsavel_email}.`
         : `DS aprovada internamente por ${nomeCompleto}. Enviada para aprovação da obra. Link enviado para ${ds.obra?.responsavel_email}.`,
       autor: nomeCompleto,
+      autor_email: userEmail,
       tipo: 'sistema',
     })
     setComentario('')
+    fetch('/api/email/aprovacao', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dsId: ds.id,
+        obraNome: ds.obra?.nome,
+        responsavelNome: ds.obra?.responsavel_nome,
+        tipoDS: ds.tipo,
+        mesReferencia: ds.mes_referencia,
+        token: ds.token_aprovacao,
+        responsavelEmail: ds.obra?.responsavel_email,
+        emailsCopia: ds.obra?.emails_copia ?? [],
+      }),
+    }).catch(err => console.error('[email/aprovacao]', err))
     loadDS()
   }
 
@@ -107,6 +125,7 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
       ds_id: ds.id,
       acao: `DS retornada para análise interna por ${nomeCompleto}.`,
       autor: nomeCompleto,
+      autor_email: userEmail,
       tipo: 'sistema',
     })
     loadDS()
@@ -138,6 +157,7 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
       ds_id: ds.id,
       acao: `Alteração solicitada internamente:\n${texto}`,
       autor: userName,
+      autor_email: userEmail,
       tipo: 'interno',
     })
     setLinhasAlteracao([])
@@ -150,6 +170,7 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
       ds_id: ds.id,
       acao: comentario,
       autor: userName,
+      autor_email: userEmail,
       tipo: 'interno',
     })
     setComentario('')
@@ -176,12 +197,13 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
         ds_id: ds.id,
         acao: `PDF v${novaVersao} carregado: ${file.name}`,
         autor: userName,
+        autor_email: userEmail,
         tipo: 'sistema',
       })
       if (ds.status === 'Alteração solicitada') {
         const { data: ultimaSolicitacao } = await supabase
           .from('historico_acoes')
-          .select('tipo')
+          .select('tipo, autor_email')
           .eq('ds_id', ds.id)
           .ilike('acao', 'Alteração solicitada%')
           .order('criado_em', { ascending: false })
@@ -198,8 +220,41 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
             ? `PDF corrigido carregado. DS enviada novamente para aprovação da obra. Link enviado para ${ds.obra?.responsavel_email}.`
             : 'PDF corrigido carregado. DS retornada para análise interna.',
           autor: userName,
+          autor_email: userEmail,
           tipo: 'sistema',
         })
+
+        if (solicitadaPelaObra) {
+          fetch('/api/email/aprovacao', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              dsId: ds.id,
+              obraNome: ds.obra?.nome,
+              responsavelNome: ds.obra?.responsavel_nome,
+              tipoDS: ds.tipo,
+              mesReferencia: ds.mes_referencia,
+              token: ds.token_aprovacao,
+              responsavelEmail: ds.obra?.responsavel_email,
+              emailsCopia: ds.obra?.emails_copia ?? [],
+            }),
+          }).catch(err => console.error('[email/aprovacao]', err))
+        } else {
+          const solicitanteEmail = ultimaSolicitacao?.autor_email
+          if (solicitanteEmail) {
+            fetch('/api/email/alteracao-atendida', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                dsId: ds.id,
+                obraNome: ds.obra?.nome,
+                adminEmail: solicitanteEmail,
+                adminNome: ultimaSolicitacao?.autor_email?.split('@')[0] ?? 'equipe',
+                numeroVersaoPDF: novaVersao,
+              }),
+            }).catch(err => console.error('[email/alteracao-atendida]', err))
+          }
+        }
       }
       loadDS()
     }
