@@ -346,80 +346,77 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
                 </button>
               )}
 
-              {/* Em análise interna -> Aguardando aprovação da obra / Alteração solicitada */}
+              {/* Em análise interna -> Aguardando aprovação da obra */}
               {ds.status === 'Em análise interna' && (
-                <div className="mt-4 flex flex-col gap-4">
-                  {/* Aprovação interna */}
-                  <div className="flex flex-col gap-2">
-                    <textarea
-                      value={comentario}
-                      onChange={e => setComentario(e.target.value)}
-                      placeholder="Observação (opcional)..."
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-[#8BAB3E]"
-                      rows={2}
-                    />
-                    <button
-                      onClick={aprovarInternamente}
-                      className="w-full bg-[#8BAB3E] hover:bg-[#7a9a35] text-white font-semibold py-2.5 rounded-lg text-sm transition-colors"
-                    >
-                      ✓ Aprovar internamente
-                    </button>
-                  </div>
-
-                  {/* Solicitar alteração por funcionário */}
-                  <div className="border-t border-gray-100 pt-4">
-                    <p className="text-xs font-semibold text-gray-500 mb-2">Solicitar alteração por funcionário</p>
-                    {linhasAlteracao.length > 0 && (
-                      <div className="flex flex-col gap-2 mb-2">
-                        {linhasAlteracao.map((linha, idx) => (
-                          <div key={linha.id} className="flex gap-2 items-start bg-gray-50 rounded-lg p-3">
-                            <span className="text-xs font-semibold text-gray-400 mt-2.5">{idx + 1}.</span>
-                            <div className="flex-1 flex flex-col gap-2">
-                              <input
-                                value={linha.nome}
-                                onChange={e => atualizarLinhaAlteracao(linha.id, 'nome', e.target.value)}
-                                placeholder="Nome do funcionário"
-                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#E87722]"
-                              />
-                              <input
-                                value={linha.alteracao}
-                                onChange={e => atualizarLinhaAlteracao(linha.id, 'alteracao', e.target.value)}
-                                placeholder="Alteração necessária"
-                                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#E87722]"
-                              />
-                            </div>
-                            <button
-                              onClick={() => removerLinhaAlteracao(linha.id)}
-                              className="text-gray-300 hover:text-red-500 mt-2.5"
-                              title="Remover"
-                            >
-                              🗑
-                            </button>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                    <button
-                      onClick={adicionarLinhaAlteracao}
-                      className="text-xs font-semibold text-[#8BAB3E] hover:underline"
-                    >
-                      + Adicionar funcionário
-                    </button>
-                    <button
-                      onClick={solicitarAlteracao}
-                      disabled={!linhasAlteracaoValidas}
-                      className="mt-3 w-full border border-[#E87722] text-[#E87722] hover:bg-orange-50 disabled:opacity-40 font-semibold py-2.5 rounded-lg text-sm transition-colors"
-                    >
-                      Solicitar alteração
-                    </button>
-                  </div>
+                <div className="mt-4 flex flex-col gap-2">
+                  <textarea
+                    value={comentario}
+                    onChange={e => setComentario(e.target.value)}
+                    placeholder="Observação (opcional)..."
+                    className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-[#8BAB3E]"
+                    rows={2}
+                  />
+                  <button
+                    onClick={aprovarInternamente}
+                    className="w-full bg-[#8BAB3E] hover:bg-[#7a9a35] text-white font-semibold py-2.5 rounded-lg text-sm transition-colors"
+                  >
+                    ✓ Aprovar internamente
+                  </button>
                 </div>
               )}
 
-              {/* Alteração solicitada -> aguarda upload de PDF corrigido */}
-              {ds.status === 'Alteração solicitada' && (
-                <div className="mt-4 bg-orange-50 rounded-lg p-3 text-sm text-[#E87722]">
-                  Alteração solicitada. Envie o PDF corrigido acima para retornar automaticamente para análise interna.
+              {/* Solicitar alteração — disponível em "Em análise interna" e "Alteração solicitada" */}
+              {(ds.status === 'Em análise interna' || ds.status === 'Alteração solicitada') && (
+                <div className={ds.status === 'Em análise interna' ? 'mt-4 border-t border-gray-100 pt-4' : 'mt-4'}>
+                  {ds.status === 'Alteração solicitada' && (
+                    <div className="mb-3 bg-orange-50 rounded-lg p-3 text-sm text-[#E87722]">
+                      Alteração solicitada. Envie o PDF corrigido acima para retornar automaticamente para análise interna. Você pode incluir novas alterações abaixo enquanto isso.
+                    </div>
+                  )}
+                  <p className="text-xs font-semibold text-gray-500 mb-2">Solicitar alteração por funcionário</p>
+                  {linhasAlteracao.length > 0 && (
+                    <div className="flex flex-col gap-2 mb-2">
+                      {linhasAlteracao.map((linha, idx) => (
+                        <div key={linha.id} className="flex gap-2 items-start bg-gray-50 rounded-lg p-3">
+                          <span className="text-xs font-semibold text-gray-400 mt-2.5">{idx + 1}.</span>
+                          <div className="flex-1 flex flex-col gap-2">
+                            <input
+                              value={linha.nome}
+                              onChange={e => atualizarLinhaAlteracao(linha.id, 'nome', e.target.value)}
+                              placeholder="Nome do funcionário"
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#E87722]"
+                            />
+                            <input
+                              value={linha.alteracao}
+                              onChange={e => atualizarLinhaAlteracao(linha.id, 'alteracao', e.target.value)}
+                              placeholder="Alteração necessária"
+                              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#E87722]"
+                            />
+                          </div>
+                          <button
+                            onClick={() => removerLinhaAlteracao(linha.id)}
+                            className="text-gray-300 hover:text-red-500 mt-2.5"
+                            title="Remover"
+                          >
+                            🗑
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  <button
+                    onClick={adicionarLinhaAlteracao}
+                    className="text-xs font-semibold text-[#8BAB3E] hover:underline"
+                  >
+                    + Adicionar funcionário
+                  </button>
+                  <button
+                    onClick={solicitarAlteracao}
+                    disabled={!linhasAlteracaoValidas}
+                    className="mt-3 w-full border border-[#E87722] text-[#E87722] hover:bg-orange-50 disabled:opacity-40 font-semibold py-2.5 rounded-lg text-sm transition-colors"
+                  >
+                    Solicitar alteração
+                  </button>
                 </div>
               )}
 
