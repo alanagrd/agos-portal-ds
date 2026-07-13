@@ -80,6 +80,63 @@ export function templateAprovacao({
   }
 }
 
+export function templateObraAprovou({
+  obraNome,
+  mesReferencia,
+  dsId,
+  link,
+}: {
+  obraNome: string
+  mesReferencia: string
+  dsId: string
+  link: string
+}) {
+  const html = wrapper(`
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+      A obra <strong>${obraNome}</strong> aprovou a DS de <strong>${mesReferencia}</strong> sem ressalvas.
+    </p>
+    <p style="margin:0 0 24px;font-size:15px;color:#374151;">
+      Acesse o portal para confirmar o encerramento da DS.
+    </p>
+    ${button('Abrir DS no portal', link)}
+  `, `DS aprovada — ${obraNome} · ${mesReferencia}`)
+
+  return {
+    subject: `DS aprovada pela obra — ${obraNome} · ${mesReferencia}`,
+    html,
+  }
+}
+
+export function templateObraSolicitouAlteracao({
+  obraNome,
+  mesReferencia,
+  comentario,
+  link,
+}: {
+  obraNome: string
+  mesReferencia: string
+  comentario: string
+  link: string
+}) {
+  const html = wrapper(`
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+      A obra <strong>${obraNome}</strong> solicitou alteração na DS de <strong>${mesReferencia}</strong>.
+    </p>
+    <div style="margin:0 0 24px;background-color:#fff7ed;border-left:3px solid #E87722;padding:12px 16px;border-radius:0 6px 6px 0;">
+      <p style="margin:0;font-size:14px;color:#374151;">${comentario}</p>
+    </div>
+    <p style="margin:0 0 24px;font-size:15px;color:#374151;">
+      Acesse o portal para corrigir o PDF e reenviar para aprovação.
+    </p>
+    ${button('Abrir DS no portal', link)}
+  `, `Alteração solicitada — ${obraNome} · ${mesReferencia}`)
+
+  return {
+    subject: `Alteração solicitada pela obra — ${obraNome} · ${mesReferencia}`,
+    html,
+  }
+}
+
 export function templateAlteracaoAtendida({
   obraNome,
   adminNome,

@@ -43,6 +43,18 @@ export default function AprovarPage({ params }: { params: { token: string } }) {
     return data.publicUrl
   }
 
+  const buscarAdminEmail = async (dsId: string): Promise<string | null> => {
+    const { data } = await supabase
+      .from('historico_acoes')
+      .select('autor_email')
+      .eq('ds_id', dsId)
+      .ilike('acao', 'DS aprovada internamente%')
+      .order('criado_em', { ascending: false })
+      .limit(1)
+      .single()
+    return data?.autor_email ?? null
+  }
+
   const aprovar = async () => {
     if (!ds) return
     setAcao('aprovando')
@@ -54,6 +66,20 @@ export default function AprovarPage({ params }: { params: { token: string } }) {
       autor: ds.obra?.responsavel_nome || 'Cliente',
       tipo: 'cliente',
     })
+
+    buscarAdminEmail(ds.id).then(adminEmail => {
+      if (!adminEmail) return
+      fetch('/api/email/obra-aprovou', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dsId: ds.id,
+          obraNome: ds.obra?.nome,
+          mesReferencia: ds.mes_referencia,
+          adminEmail,
+        }),
+      }).catch(err => console.error('[email/obra-aprovou]', err))
+    }).catch(err => console.error('[buscarAdminEmail]', err))
 
     setConcluido('aprovada')
     setAcao(null)
@@ -70,6 +96,21 @@ export default function AprovarPage({ params }: { params: { token: string } }) {
       autor: ds.obra?.responsavel_nome || 'Cliente',
       tipo: 'cliente',
     })
+
+    buscarAdminEmail(ds.id).then(adminEmail => {
+      if (!adminEmail) return
+      fetch('/api/email/obra-solicitou-alteracao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          dsId: ds.id,
+          obraNome: ds.obra?.nome,
+          mesReferencia: ds.mes_referencia,
+          adminEmail,
+          comentario: comentario.trim(),
+        }),
+      }).catch(err => console.error('[email/obra-solicitou-alteracao]', err))
+    }).catch(err => console.error('[buscarAdminEmail]', err))
 
     setConcluido('revisao')
     setAcao(null)
