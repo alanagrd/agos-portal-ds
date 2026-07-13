@@ -17,7 +17,10 @@ export default function DashboardPage() {
   const [filtroObra, setFiltroObra] = useState<string>('todas')
   const [filtroCompetencia, setFiltroCompetencia] = useState<string>(getCompetenciaAtual())
   const [userName, setUserName] = useState('AGOS')
+  const [userEmail, setUserEmail] = useState('')
   const [processando, setProcessando] = useState<string | null>(null)
+  const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set())
+  const [enviandoEmMassa, setEnviandoEmMassa] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -29,6 +32,7 @@ export default function DashboardPage() {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) { router.push('/auth/login'); return }
     setUserName(user.email?.split('@')[0] || 'AGOS')
+    setUserEmail(user.email || '')
 
     const { data, error } = await supabase
       .from('descricoes_servico')
@@ -72,6 +76,44 @@ export default function DashboardPage() {
     loadDS()
   }
 
+  const toggleSelecionada = (id: string) => {
+    setSelecionadas(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }
+
+  const enviarSelecionadasParaAnaliseInterna = async () => {
+    const ids = Array.from(selecionadas)
+    if (!confirm(`Enviar ${ids.length} DS(s) selecionada(s) para análise interna?`)) return
+    setEnviandoEmMassa(true)
+
+    const resultados = await Promise.allSettled(
+      ids.map(async id => {
+        await supabase.from('descricoes_servico').update({ status: 'Em análise interna' }).eq('id', id)
+        await supabase.from('historico_acoes').insert({
+          ds_id: id,
+          acao: 'DS enviada para análise interna.',
+          autor: userName,
+          autor_email: userEmail,
+          tipo: 'sistema',
+        })
+      })
+    )
+
+    const sucessos = resultados.filter(r => r.status === 'fulfilled').length
+    const falhas = resultados.filter(r => r.status === 'rejected').length
+    if (falhas > 0) {
+      alert(`${sucessos} DS(s) enviada(s) para análise interna. ${falhas} falhou — tente novamente.`)
+    }
+
+    setEnviandoEmMassa(false)
+    setSelecionadas(new Set())
+    loadDS()
+  }
+
   const obras = Array.from(new Map(dsList.map(ds => [ds.obra_id, ds.obra])).values())
 
   const competenciaAtual = getCompetenciaAtual()
@@ -92,6 +134,17 @@ export default function DashboardPage() {
     const matchStatus = filtroStatus === 'todos' || ds.status === filtroStatus
     return matchStatus
   })
+
+  const dsGeradasVisiveis = dsFiltradas.filter(ds => ds.status === 'Gerada')
+  const todasSelecionadas = dsGeradasVisiveis.length > 0 && dsGeradasVisiveis.every(ds => selecionadas.has(ds.id))
+
+  const toggleSelecionarTodas = () => {
+    if (todasSelecionadas) {
+      setSelecionadas(new Set())
+    } else {
+      setSelecionadas(new Set(dsGeradasVisiveis.map(ds => ds.id)))
+    }
+  }
 
   const contagem = (status: StatusDS) => dsDoPeriodo.filter(d => d.status === status).length
 
@@ -135,10 +188,10 @@ export default function DashboardPage() {
 
         {/* Filtros + botão nova DS */}
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             <select
               value={filtroCompetencia}
-              onChange={e => setFiltroCompetencia(e.target.value)}
+              onChange={e => { setFiltroCompetencia(e.target.value); setSelecionadas(new Set()) }}
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white"
             >
               <option value="todas">Todas as competências</option>
@@ -148,7 +201,7 @@ export default function DashboardPage() {
             </select>
             <select
               value={filtroObra}
-              onChange={e => setFiltroObra(e.target.value)}
+              onChange={e => { setFiltroObra(e.target.value); setSelecionadas(new Set()) }}
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white"
             >
               <option value="todas">Todas as obras</option>
@@ -158,7 +211,7 @@ export default function DashboardPage() {
             </select>
             <select
               value={filtroStatus}
-              onChange={e => setFiltroStatus(e.target.value)}
+              onChange={e => { setFiltroStatus(e.target.value); setSelecionadas(new Set()) }}
               className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white"
             >
               <option value="todos">Todos os status</option>
@@ -183,6 +236,47 @@ export default function DashboardPage() {
           </div>
         </div>
 
+        {/* Barra de seleção em massa */}
+        {dsGeradasVisiveis.length > 0 && (
+          <div className="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-3 mb-3 gap-3 flex-wrap">
+            <label
+              className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none"
+              onClick={e => e.stopPropagation()}
+            >
+              <input
+                type="checkbox"
+                checked={todasSelecionadas}
+                onChange={toggleSelecionarTodas}
+                className="w-4 h-4 accent-[#8BAB3E]"
+              />
+              {todasSelecionadas
+                ? 'Desmarcar todas'
+                : `Selecionar todas as geradas (${dsGeradasVisiveis.length})`}
+            </label>
+
+            {selecionadas.size > 0 && (
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-700">
+                  {selecionadas.size} selecionada{selecionadas.size > 1 ? 's' : ''}
+                </span>
+                <button
+                  onClick={enviarSelecionadasParaAnaliseInterna}
+                  disabled={enviandoEmMassa}
+                  className="bg-[#8BAB3E] hover:bg-[#7a9a35] disabled:bg-gray-200 disabled:text-gray-400 text-white text-sm font-semibold px-4 py-1.5 rounded-lg transition-colors"
+                >
+                  {enviandoEmMassa ? 'Enviando...' : 'Enviar para análise interna'}
+                </button>
+                <button
+                  onClick={() => setSelecionadas(new Set())}
+                  className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+                >
+                  Limpar seleção
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Lista de DSs */}
         <div className="flex flex-col gap-3">
           {dsFiltradas.length === 0 && (
@@ -197,11 +291,25 @@ export default function DashboardPage() {
               <div
                 key={ds.id}
                 onClick={() => router.push(`/ds/${ds.id}`)}
-                className={`rounded-xl border px-6 py-4 flex items-center justify-between hover:shadow-sm transition-shadow cursor-pointer ${
+                className={`rounded-xl border px-4 py-4 flex items-center gap-3 hover:shadow-sm transition-shadow cursor-pointer ${
                   ds.status === 'Alteração solicitada' ? 'bg-orange-50 border-orange-200' : 'bg-white border-gray-100'
                 }`}
               >
-                <div>
+                {/* Checkbox — só para Geradas */}
+                {ds.status === 'Gerada' ? (
+                  <input
+                    type="checkbox"
+                    checked={selecionadas.has(ds.id)}
+                    onChange={e => { e.stopPropagation(); toggleSelecionada(ds.id) }}
+                    onClick={e => e.stopPropagation()}
+                    className="w-4 h-4 accent-[#8BAB3E] flex-shrink-0"
+                  />
+                ) : (
+                  <div className="w-4 flex-shrink-0" />
+                )}
+
+                {/* Informações da DS */}
+                <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-1">
                     <span className="font-semibold text-[#111]">{ds.obra?.nome}</span>
                     <span className={`px-2 py-0.5 rounded-full text-[11px] font-medium ${tc.bgColor} ${tc.textColor}`}>
@@ -214,7 +322,9 @@ export default function DashboardPage() {
                     {ds.obra?.codigo_cliente && <span className="font-medium text-gray-500">[{ds.obra.codigo_cliente}]</span>} {ds.obra?.cliente} · {ds.obra?.responsavel_nome}
                   </div>
                 </div>
-                <div className="flex items-center gap-3">
+
+                {/* Ações */}
+                <div className="flex items-center gap-3 flex-shrink-0">
                   <div className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium ${sc.bgColor} ${sc.textColor}`}>
                     <div className={`w-1.5 h-1.5 rounded-full ${sc.dotColor}`} />
                     {sc.label}

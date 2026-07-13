@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { resend, EMAIL_FROM } from '@/lib/resend'
+import { getResend, EMAIL_FROM } from '@/lib/resend'
 import { templateAprovacao } from '@/lib/email-templates'
 
 export async function POST(req: NextRequest) {
@@ -9,7 +9,7 @@ export async function POST(req: NextRequest) {
     const link = `${process.env.NEXT_PUBLIC_APP_URL}/aprovar/${token}`
     const { subject, html } = templateAprovacao({ obraNome, responsavelNome, tipoDS, mesReferencia, link })
 
-    const { error } = await resend.emails.send({
+    const { error } = await getResend().emails.send({
       from: EMAIL_FROM,
       to: responsavelEmail,
       cc: emailsCopia?.length ? emailsCopia : undefined,
