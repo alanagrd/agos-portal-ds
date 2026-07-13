@@ -137,6 +137,38 @@ export function templateObraSolicitouAlteracao({
   }
 }
 
+export function templateLembretePendente({
+  obraNome,
+  mesReferencia,
+  diasPendente,
+  link,
+}: {
+  obraNome: string
+  mesReferencia: string
+  diasPendente: number
+  link: string
+}) {
+  const html = wrapper(`
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+      Esta é uma lembrança de que a Descrição de Serviços (<strong>${mesReferencia}</strong>)
+      referente à obra <strong>${obraNome}</strong> está aguardando a sua aprovação
+      há <strong>${diasPendente} dia${diasPendente !== 1 ? 's' : ''}</strong>.
+    </p>
+    <p style="margin:0 0 24px;font-size:15px;color:#374151;">
+      Por favor, acesse o link abaixo para visualizar o PDF e aprovar ou solicitar alterações.
+    </p>
+    ${button('Visualizar e aprovar DS', link)}
+    <p style="margin:24px 0 0;font-size:12px;color:#9ca3af;">
+      Se você já tomou uma ação recentemente, desconsidere este aviso.
+    </p>
+  `, `Lembrete DS — ${obraNome} · ${mesReferencia}`)
+
+  return {
+    subject: `Lembrete: DS aguardando sua aprovação há ${diasPendente} dia${diasPendente !== 1 ? 's' : ''} — ${obraNome}`,
+    html,
+  }
+}
+
 export function templateAlteracaoAtendida({
   obraNome,
   adminNome,
