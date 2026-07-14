@@ -22,6 +22,9 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
   const [nomeCompleto, setNomeCompleto] = useState('AGOS')
   const [mostrarResolvidas, setMostrarResolvidas] = useState(false)
   const [linhasAlteracao, setLinhasAlteracao] = useState<{ id: string; nome: string; alteracao: string }[]>([])
+  const [reenviando, setReenviando] = useState(false)
+  const [testando, setTestando] = useState(false)
+  const [emailTeste, setEmailTeste] = useState('')
 
   const router = useRouter()
   const supabase = createClient()
@@ -129,6 +132,60 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
       tipo: 'sistema',
     })
     loadDS()
+  }
+
+  const reenviarEmailAprovacao = async () => {
+    if (!ds) return
+    const destino = `${ds.obra?.responsavel_nome} (${ds.obra?.responsavel_email})${ds.obra?.emails_copia?.length ? ` e ${ds.obra.emails_copia.length} email(s) em cópia` : ''}`
+    if (!confirm(`Reenviar o email de aprovação para ${destino}?`)) return
+    setReenviando(true)
+    await fetch('/api/email/aprovacao', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dsId: ds.id,
+        obraNome: ds.obra?.nome,
+        responsavelNome: ds.obra?.responsavel_nome,
+        tipoDS: ds.tipo,
+        mesReferencia: ds.mes_referencia,
+        token: ds.token_aprovacao,
+        responsavelEmail: ds.obra?.responsavel_email,
+        emailsCopia: ds.obra?.emails_copia ?? [],
+      }),
+    }).catch(err => console.error('[reenviarEmailAprovacao]', err))
+    await supabase.from('historico_acoes').insert({
+      ds_id: ds.id,
+      acao: `Email de aprovação reenviado manualmente por ${nomeCompleto}. Link enviado para ${ds.obra?.responsavel_email}.`,
+      autor: nomeCompleto,
+      autor_email: userEmail,
+      tipo: 'sistema',
+    })
+    setReenviando(false)
+    alert('Email reenviado com sucesso.')
+    loadDS()
+  }
+
+  const enviarEmailTeste = async () => {
+    if (!ds) return
+    if (!/\S+@\S+\.\S+/.test(emailTeste)) { alert('Digite um email válido.'); return }
+    setTestando(true)
+    await fetch('/api/email/aprovacao', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        dsId: ds.id,
+        obraNome: ds.obra?.nome,
+        responsavelNome: ds.obra?.responsavel_nome,
+        tipoDS: ds.tipo,
+        mesReferencia: ds.mes_referencia,
+        token: ds.token_aprovacao,
+        responsavelEmail: emailTeste.trim(),
+        emailsCopia: [],
+      }),
+    }).catch(err => console.error('[enviarEmailTeste]', err))
+    setTestando(false)
+    alert(`Email de teste enviado para ${emailTeste.trim()}.`)
+    setEmailTeste('')
   }
 
   const adicionarLinhaAlteracao = () => {
@@ -480,12 +537,37 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
                   <div className="bg-blue-50 rounded-lg p-3 text-sm text-blue-700">
                     Link enviado para <strong>{ds.obra?.responsavel_nome}</strong> ({ds.obra?.responsavel_email}). Aguardando resposta da obra.
                   </div>
-                  <button
-                    onClick={retornarParaAnaliseInterna}
-                    className="self-start text-xs text-gray-500 border border-gray-200 hover:bg-gray-50 font-medium px-3 py-1.5 rounded-lg transition-colors"
-                  >
-                    ↩ Retornar para análise interna
-                  </button>
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      onClick={retornarParaAnaliseInterna}
+                      className="text-xs text-gray-500 border border-gray-200 hover:bg-gray-50 font-medium px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      ↩ Retornar para análise interna
+                    </button>
+                    <button
+                      onClick={reenviarEmailAprovacao}
+                      disabled={reenviando}
+                      className="text-xs text-gray-500 border border-gray-200 hover:bg-gray-50 font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
+                    >
+                      {reenviando ? 'Reenviando...' : '↻ Reenviar email de aprovação'}
+                    </button>
+                  </div>
+                  <div className="flex gap-2 items-center mt-1">
+                    <input
+                      type="email"
+                      value={emailTeste}
+                      onChange={e => setEmailTeste(e.target.value)}
+                      placeholder="email para teste..."
+                      className="border border-gray-200 rounded px-2 py-1 text-xs text-gray-600 focus:outline-none focus:ring-1 focus:ring-gray-300 w-52"
+                    />
+                    <button
+                      onClick={enviarEmailTeste}
+                      disabled={testando || !emailTeste.trim()}
+                      className="text-xs text-gray-500 border border-gray-200 hover:bg-gray-50 font-medium px-3 py-1 rounded-lg transition-colors disabled:opacity-40"
+                    >
+                      {testando ? 'Enviando...' : 'Enviar teste'}
+                    </button>
+                  </div>
                 </div>
               )}
 
