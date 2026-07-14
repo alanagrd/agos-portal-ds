@@ -13,6 +13,7 @@ export default function AprovarPage({ params }: { params: { token: string } }) {
   const [comentario, setComentario] = useState('')
   const [acao, setAcao] = useState<'aprovando' | 'revisando' | null>(null)
   const [concluido, setConcluido] = useState<'aprovada' | 'revisao' | null>(null)
+  const [erro, setErro] = useState<string | null>(null)
   const supabase = createClient()
 
   useEffect(() => { loadDS() }, [])
@@ -58,8 +59,31 @@ export default function AprovarPage({ params }: { params: { token: string } }) {
   const aprovar = async () => {
     if (!ds) return
     setAcao('aprovando')
+    setErro(null)
 
-    await supabase.from('descricoes_servico').update({ status: 'Aprovada' }).eq('id', ds.id)
+    const { error: updateError } = await supabase
+      .from('descricoes_servico')
+      .update({ status: 'Aprovada' })
+      .eq('id', ds.id)
+
+    if (updateError) {
+      setErro('Não foi possível registrar sua aprovação. Tente novamente ou entre em contato com a AGOS.')
+      setAcao(null)
+      return
+    }
+
+    const { data: confirmacao } = await supabase
+      .from('descricoes_servico')
+      .select('status')
+      .eq('id', ds.id)
+      .single()
+
+    if (confirmacao?.status !== 'Aprovada') {
+      setErro('Não foi possível registrar sua aprovação. Tente novamente ou entre em contato com a AGOS.')
+      setAcao(null)
+      return
+    }
+
     await supabase.from('historico_acoes').insert({
       ds_id: ds.id,
       acao: 'DS aprovada sem ressalvas.',
@@ -88,8 +112,31 @@ export default function AprovarPage({ params }: { params: { token: string } }) {
   const solicitarRevisao = async () => {
     if (!ds || !comentario.trim()) return
     setAcao('revisando')
+    setErro(null)
 
-    await supabase.from('descricoes_servico').update({ status: 'Alteração solicitada' }).eq('id', ds.id)
+    const { error: updateError } = await supabase
+      .from('descricoes_servico')
+      .update({ status: 'Alteração solicitada' })
+      .eq('id', ds.id)
+
+    if (updateError) {
+      setErro('Não foi possível registrar sua solicitação. Tente novamente ou entre em contato com a AGOS.')
+      setAcao(null)
+      return
+    }
+
+    const { data: confirmacao } = await supabase
+      .from('descricoes_servico')
+      .select('status')
+      .eq('id', ds.id)
+      .single()
+
+    if (confirmacao?.status !== 'Alteração solicitada') {
+      setErro('Não foi possível registrar sua solicitação. Tente novamente ou entre em contato com a AGOS.')
+      setAcao(null)
+      return
+    }
+
     await supabase.from('historico_acoes').insert({
       ds_id: ds.id,
       acao: `Alteração solicitada pela obra: "${comentario}"`,
@@ -130,6 +177,25 @@ export default function AprovarPage({ params }: { params: { token: string } }) {
         <div className="text-center">
           <p className="text-gray-700 font-medium">Link inválido ou expirado.</p>
           <p className="text-gray-400 text-sm mt-1">Entre em contato com a AGOS Serviços.</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (erro) {
+    return (
+      <div className="min-h-screen bg-[#F8F9FB] flex items-center justify-center">
+        <div className="text-center max-w-sm px-5">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <span className="text-red-500 text-2xl">!</span>
+          </div>
+          <p className="text-gray-700 font-medium">{erro}</p>
+          <button
+            onClick={() => setErro(null)}
+            className="mt-4 text-sm text-[#E87722] hover:underline"
+          >
+            Tentar novamente
+          </button>
         </div>
       </div>
     )
