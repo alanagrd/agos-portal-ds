@@ -25,6 +25,7 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
   const [reenviando, setReenviando] = useState(false)
   const [testando, setTestando] = useState(false)
   const [emailTeste, setEmailTeste] = useState('')
+  const [enviandoSemPDF, setEnviandoSemPDF] = useState(false)
 
   const router = useRouter()
   const supabase = createClient()
@@ -186,6 +187,30 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
     setTestando(false)
     alert(`Email de teste enviado para ${emailTeste.trim()}.`)
     setEmailTeste('')
+  }
+
+  const enviarNovamenteParaAnaliseSemPDF = async () => {
+    if (!ds) return
+    if (!confirm('A alteração solicitada não será mais necessária e a DS retornará para análise interna sem um PDF novo. Confirma?')) return
+    setEnviandoSemPDF(true)
+    const { error } = await supabase
+      .from('descricoes_servico')
+      .update({ status: 'Em análise interna' })
+      .eq('id', ds.id)
+    if (error) {
+      alert('Não foi possível atualizar o status. Tente novamente.')
+      setEnviandoSemPDF(false)
+      return
+    }
+    await supabase.from('historico_acoes').insert({
+      ds_id: ds.id,
+      acao: `DS enviada novamente para análise interna por ${nomeCompleto}, sem necessidade de novo PDF.`,
+      autor: nomeCompleto,
+      autor_email: userEmail,
+      tipo: 'sistema',
+    })
+    setEnviandoSemPDF(false)
+    loadDS()
   }
 
   const adicionarLinhaAlteracao = () => {
@@ -481,9 +506,20 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
               {(ds.status === 'Em análise interna' || ds.status === 'Alteração solicitada') && (
                 <div className={ds.status === 'Em análise interna' ? 'mt-4 border-t border-gray-100 pt-4' : 'mt-4'}>
                   {ds.status === 'Alteração solicitada' && (
-                    <div className="mb-3 bg-orange-50 rounded-lg p-3 text-sm text-[#E87722]">
-                      Alteração solicitada. Envie o PDF corrigido acima para retornar automaticamente para análise interna. Você pode incluir novas alterações abaixo enquanto isso.
-                    </div>
+                    <>
+                      <div className="mb-3 bg-orange-50 rounded-lg p-3 text-sm text-[#E87722]">
+                        Alteração solicitada. Envie o PDF corrigido acima para retornar automaticamente para análise interna. Você pode incluir novas alterações abaixo enquanto isso.
+                      </div>
+                      {todasAlteracoes[todasAlteracoes.length - 1]?.tipo === 'interno' && (
+                        <button
+                          onClick={enviarNovamenteParaAnaliseSemPDF}
+                          disabled={enviandoSemPDF}
+                          className="mb-3 self-start text-xs text-gray-500 border border-gray-200 hover:bg-gray-50 font-medium px-3 py-1.5 rounded-lg transition-colors disabled:opacity-40"
+                        >
+                          {enviandoSemPDF ? 'Enviando...' : '↻ Enviar novamente para análise interna (sem novo PDF)'}
+                        </button>
+                      )}
+                    </>
                   )}
                   <p className="text-xs font-semibold text-gray-500 mb-2">Solicitar alteração por funcionário</p>
                   {linhasAlteracao.length > 0 && (
