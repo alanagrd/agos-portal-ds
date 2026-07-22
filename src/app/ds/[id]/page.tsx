@@ -264,7 +264,8 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
     setUploading(true)
     const file = e.target.files[0]
     const novaVersao = (versoes.length || 0) + 1
-    const path = `${ds.id}/v${novaVersao}_${file.name}`
+    const nomeSeguro = file.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_')
+    const path = `${ds.id}/v${novaVersao}_${nomeSeguro}`
 
     const { error: uploadError } = await supabase.storage.from('ds-pdfs').upload(path, file)
 

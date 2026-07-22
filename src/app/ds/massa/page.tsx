@@ -118,7 +118,8 @@ export default function DSMassaPage() {
       })
 
       // Upload PDF
-      const path = `${novaDS.id}/v1_${item.file.name}`
+      const nomeSeguro = item.file.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_')
+      const path = `${novaDS.id}/v1_${nomeSeguro}`
       const { error: uploadError } = await supabase.storage
         .from('ds-pdfs')
         .upload(path, item.file)

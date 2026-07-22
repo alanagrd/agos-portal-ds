@@ -56,7 +56,8 @@ export default function NovaDSPage() {
 
     // Upload do PDF se tiver
     if (arquivo) {
-      const path = `${novaDS.id}/v1_${arquivo.name}`
+      const nomeSeguro = arquivo.name.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9._-]/g, '_')
+      const path = `${novaDS.id}/v1_${nomeSeguro}`
       const { error: uploadError } = await supabase.storage
         .from('ds-pdfs')
         .upload(path, arquivo)
