@@ -21,6 +21,7 @@ export default function DashboardPage() {
   const [processando, setProcessando] = useState<string | null>(null)
   const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set())
   const [enviandoEmMassa, setEnviandoEmMassa] = useState(false)
+  const [apenasNaoAprovadas, setApenasNaoAprovadas] = useState(false)
   const router = useRouter()
   const supabase = createClient()
 
@@ -132,7 +133,8 @@ export default function DashboardPage() {
 
   const dsFiltradas = dsDoPeriodo.filter(ds => {
     const matchStatus = filtroStatus === 'todos' || ds.status === filtroStatus
-    return matchStatus
+    const matchNaoAprovada = !apenasNaoAprovadas || ds.status !== 'Aprovada'
+    return matchStatus && matchNaoAprovada
   })
 
   const dsGeradasVisiveis = dsFiltradas.filter(ds => ds.status === 'Gerada')
@@ -211,14 +213,24 @@ export default function DashboardPage() {
             </select>
             <select
               value={filtroStatus}
-              onChange={e => { setFiltroStatus(e.target.value); setSelecionadas(new Set()) }}
-              className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white"
+              disabled={apenasNaoAprovadas}
+              onChange={e => { setFiltroStatus(e.target.value); setApenasNaoAprovadas(false); setSelecionadas(new Set()) }}
+              className={`border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white ${apenasNaoAprovadas ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               <option value="todos">Todos os status</option>
               {Object.keys(STATUS_CONFIG).map(s => (
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
+            <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={apenasNaoAprovadas}
+                onChange={e => { setApenasNaoAprovadas(e.target.checked); setFiltroStatus('todos'); setSelecionadas(new Set()) }}
+                className="w-4 h-4 accent-[#8BAB3E]"
+              />
+              Mostrar apenas não aprovadas
+            </label>
           </div>
           <div className="flex gap-2">
             <Link
