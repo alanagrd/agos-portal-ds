@@ -30,6 +30,8 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadDS()
+    const intervalo = setInterval(loadDS, 60_000)
+    return () => clearInterval(intervalo)
   }, [])
 
   useEffect(() => {
