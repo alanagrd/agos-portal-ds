@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
@@ -22,11 +22,24 @@ export default function DashboardPage() {
   const [selecionadas, setSelecionadas] = useState<Set<string>>(new Set())
   const [enviandoEmMassa, setEnviandoEmMassa] = useState(false)
   const [apenasNaoAprovadas, setApenasNaoAprovadas] = useState(false)
+  const [filtrosTipo, setFiltrosTipo] = useState<Set<TipoDS>>(new Set())
+  const [tipoDropdownAberto, setTipoDropdownAberto] = useState(false)
+  const tipoDropdownRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
     loadDS()
+  }, [])
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (tipoDropdownRef.current && !tipoDropdownRef.current.contains(e.target as Node)) {
+        setTipoDropdownAberto(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
   }, [])
 
   const loadDS = async () => {
@@ -75,6 +88,16 @@ export default function DashboardPage() {
 
     setProcessando(null)
     loadDS()
+  }
+
+  const toggleFiltroTipo = (tipo: TipoDS) => {
+    setFiltrosTipo(prev => {
+      const next = new Set(prev)
+      if (next.has(tipo)) next.delete(tipo)
+      else next.add(tipo)
+      return next
+    })
+    setSelecionadas(new Set())
   }
 
   const toggleSelecionada = (id: string) => {
@@ -133,8 +156,9 @@ export default function DashboardPage() {
 
   const dsFiltradas = dsDoPeriodo.filter(ds => {
     const matchStatus = filtroStatus === 'todos' || ds.status === filtroStatus
+    const matchTipo = filtrosTipo.size === 0 || filtrosTipo.has(ds.tipo as TipoDS)
     const matchNaoAprovada = !apenasNaoAprovadas || ds.status !== 'Aprovada'
-    return matchStatus && matchNaoAprovada
+    return matchStatus && matchTipo && matchNaoAprovada
   })
 
   const dsGeradasVisiveis = dsFiltradas.filter(ds => ds.status === 'Gerada')
@@ -222,6 +246,39 @@ export default function DashboardPage() {
                 <option key={s} value={s}>{s}</option>
               ))}
             </select>
+            {/* Dropdown de tipo */}
+            <div ref={tipoDropdownRef} className="relative">
+              <button
+                onClick={() => setTipoDropdownAberto(prev => !prev)}
+                className="border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 bg-white flex items-center gap-1.5"
+              >
+                {filtrosTipo.size === 0 ? 'Todos os tipos' : `Tipo (${filtrosTipo.size})`}
+                <span className="text-gray-400 text-xs">▾</span>
+              </button>
+              {tipoDropdownAberto && (
+                <div className="absolute top-full left-0 mt-1 z-10 bg-white border border-gray-200 rounded-lg shadow-md p-2 min-w-[180px]">
+                  {filtrosTipo.size > 0 && (
+                    <button
+                      onClick={() => { setFiltrosTipo(new Set()); setSelecionadas(new Set()) }}
+                      className="w-full text-left px-2 py-1.5 text-xs text-[#E87722] hover:bg-orange-50 rounded mb-1"
+                    >
+                      Limpar seleção
+                    </button>
+                  )}
+                  {Object.keys(TIPO_CONFIG).map(t => (
+                    <label key={t} className="flex items-center gap-2 px-2 py-1.5 text-sm text-gray-700 hover:bg-gray-50 rounded cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={filtrosTipo.has(t as TipoDS)}
+                        onChange={() => toggleFiltroTipo(t as TipoDS)}
+                        className="w-4 h-4 accent-[#8BAB3E]"
+                      />
+                      {TIPO_CONFIG[t as TipoDS].label}
+                    </label>
+                  ))}
+                </div>
+              )}
+            </div>
             <label className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
               <input
                 type="checkbox"
