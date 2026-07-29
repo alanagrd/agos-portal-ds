@@ -66,11 +66,11 @@ export async function POST(req: NextRequest) {
   const codigoHash = hashCodigo(codigo, email)
   const expiraEm = new Date(Date.now() + 15 * 60 * 1000).toISOString()
 
-  await admin.from('codigos_verificacao').insert({
-    email,
-    codigo_hash: codigoHash,
-    expira_em: expiraEm,
-  })
+  const { data: inserido } = await admin
+    .from('codigos_verificacao')
+    .insert({ email, codigo_hash: codigoHash, expira_em: expiraEm })
+    .select('id')
+    .single()
 
   const { subject, html } = templateCodigoVerificacao({ codigo })
   const { error: emailError } = await getResend().emails.send({
@@ -79,8 +79,13 @@ export async function POST(req: NextRequest) {
     subject,
     html,
   })
+
   if (emailError) {
     console.error('[solicitar-codigo] Resend error:', emailError)
+    if (inserido?.id) {
+      await admin.from('codigos_verificacao').update({ usado: true }).eq('id', inserido.id)
+    }
+    return NextResponse.json({ erro: 'falha_envio' }, { status: 500 })
   }
 
   return NextResponse.json({ ok: true })

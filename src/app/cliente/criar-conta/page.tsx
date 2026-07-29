@@ -42,6 +42,10 @@ export default function CriarContaPage() {
       setErro('Muitas tentativas. Aguarde alguns minutos.')
       return
     }
+    if (res.status === 500) {
+      setErro('Não conseguimos enviar o código agora. Tente novamente em instantes.')
+      return
+    }
     if (!res.ok) {
       setErro('Erro ao enviar código. Tente novamente.')
       return
