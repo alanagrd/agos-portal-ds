@@ -57,6 +57,8 @@ export interface HistoricoAcao {
   criado_em: string;
 }
 
+export type PerfilUsuario = 'agos' | 'cliente'
+
 export interface UsuarioAgos {
   id: string;
   nome: string;

@@ -169,6 +169,29 @@ export function templateLembretePendente({
   }
 }
 
+export function templateCodigoVerificacao({ codigo }: { codigo: string }) {
+  const html = wrapper(`
+    <p style="margin:0 0 16px;font-size:15px;color:#374151;">
+      Você solicitou acesso ao <strong>Portal do Cliente AGOS Serviços</strong>.
+    </p>
+    <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">Seu código de verificação é:</p>
+    <div style="margin:0 0 24px;text-align:center;padding:24px;background-color:#f9fafb;border-radius:10px;border:1px solid #e5e7eb;">
+      <span style="font-family:'Courier New',Courier,monospace;font-size:36px;font-weight:700;letter-spacing:12px;color:#1C1C1E;">${codigo}</span>
+    </div>
+    <p style="margin:0 0 8px;font-size:13px;color:#6b7280;">
+      Este código é válido por <strong>15 minutos</strong>.
+    </p>
+    <p style="margin:0;font-size:12px;color:#9ca3af;">
+      Se você não solicitou este código, ignore este e-mail com segurança.
+    </p>
+  `, 'Código de verificação — AGOS Serviços')
+
+  return {
+    subject: `${codigo} é seu código de verificação — AGOS Portal do Cliente`,
+    html,
+  }
+}
+
 export function templateAlteracaoAtendida({
   obraNome,
   adminNome,
