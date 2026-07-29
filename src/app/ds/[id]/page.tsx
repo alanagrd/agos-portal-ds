@@ -283,11 +283,9 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
         autor_email: userEmail,
         tipo: 'sistema',
       })
-      if (!ds.numero_ds) {
-        const numero = extrairNumeroDS(file.name)
-        if (numero) {
-          await supabase.from('descricoes_servico').update({ numero_ds: numero }).eq('id', ds.id)
-        }
+      const numero = extrairNumeroDS(file.name)
+      if (numero) {
+        await supabase.from('descricoes_servico').update({ numero_ds: numero }).eq('id', ds.id)
       }
       if (ds.status === 'Alteração solicitada') {
         const { data: ultimaSolicitacao } = await supabase

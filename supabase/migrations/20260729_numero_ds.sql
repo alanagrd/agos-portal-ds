@@ -8,7 +8,7 @@ from (
   select distinct on (v.ds_id) v.ds_id,
          substring(upper(v.storage_path) from 'DS[ _-]*([0-9]{3,})') as numero
   from public.versoes_pdf v
-  order by v.ds_id, v.numero_versao asc
+  order by v.ds_id, v.numero_versao desc
 ) sub
 where sub.ds_id = d.id
   and sub.numero is not null
