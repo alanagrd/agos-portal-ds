@@ -74,7 +74,7 @@ export const TIPO_CONFIG: Record<TipoDS, { label: string; bgColor: string; textC
 }
 
 export function extrairNumeroDS(filename: string): string | null {
-  const m = filename.toUpperCase().match(/DS[_-]?(\d{3,})/)
+  const m = filename.toUpperCase().match(/DS[ _-]*(\d{3,})/)
   return m ? m[1] : null
 }
 
