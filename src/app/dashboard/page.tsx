@@ -388,6 +388,12 @@ export default function DashboardPage() {
                     </span>
                     <span className="text-gray-300">·</span>
                     <span className="text-sm text-gray-500">{ds.mes_referencia}</span>
+                    {ds.numero_ds && (
+                      <>
+                        <span className="text-gray-300">·</span>
+                        <span className="text-xs text-gray-400">#{ds.numero_ds}</span>
+                      </>
+                    )}
                   </div>
                   <div className="text-xs text-gray-400">
                     {ds.obra?.codigo_cliente && <span className="font-medium text-gray-500">[{ds.obra.codigo_cliente}]</span>} {ds.obra?.cliente} · {ds.obra?.responsavel_nome}

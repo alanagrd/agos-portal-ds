@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import Header from '@/components/layout/Header'
 import { Obra, TipoDS } from '@/types'
-import { TIPO_CONFIG } from '@/lib/utils'
+import { TIPO_CONFIG, extrairNumeroDS } from '@/lib/utils'
 
 export default function NovaDSPage() {
   const [obras, setObras] = useState<Obra[]>([])
@@ -40,7 +40,7 @@ export default function NovaDSPage() {
     // Criar DS
     const { data: novaDS, error } = await supabase
       .from('descricoes_servico')
-      .insert({ obra_id: obraId, mes_referencia: mes, status: 'Gerada', tipo })
+      .insert({ obra_id: obraId, mes_referencia: mes, status: 'Gerada', tipo, numero_ds: arquivo ? extrairNumeroDS(arquivo.name) : null })
       .select()
       .single()
 

@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import Header from '@/components/layout/Header'
 import { DescricaoServico, HistoricoAcao, VersaoPDF, StatusDS, TipoDS } from '@/types'
-import { STATUS_CONFIG, TIPO_CONFIG, formatDate } from '@/lib/utils'
+import { STATUS_CONFIG, TIPO_CONFIG, formatDate, extrairNumeroDS } from '@/lib/utils'
 
 export default function DSDetalhePage({ params }: { params: { id: string } }) {
   const [ds, setDs] = useState<DescricaoServico | null>(null)
@@ -283,6 +283,12 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
         autor_email: userEmail,
         tipo: 'sistema',
       })
+      if (!ds.numero_ds) {
+        const numero = extrairNumeroDS(file.name)
+        if (numero) {
+          await supabase.from('descricoes_servico').update({ numero_ds: numero }).eq('id', ds.id)
+        }
+      }
       if (ds.status === 'Alteração solicitada') {
         const { data: ultimaSolicitacao } = await supabase
           .from('historico_acoes')
@@ -427,8 +433,13 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
                       {TIPO_CONFIG[ds.tipo as TipoDS]?.label}
                     </span>
                   </div>
-                  <h1 className="text-xl font-bold text-[#111]">{ds.obra?.nome}</h1>
-                  <p className="text-sm text-gray-500 mt-0.5">{ds.obra?.cliente} · {ds.mes_referencia}</p>
+                  <h1 className="text-xl font-bold text-[#111]">
+                    {ds.obra?.nome}
+                    {ds.numero_ds && <span className="ml-2 text-base font-normal text-gray-400">#{ds.numero_ds}</span>}
+                  </h1>
+                  <p className="text-sm text-gray-500 mt-0.5">
+                    {ds.obra?.cliente}{ds.obra?.codigo_cliente ? ` · ${ds.obra.codigo_cliente}` : ''} · {ds.mes_referencia}
+                  </p>
                 </div>
 
                 <div className="text-right">

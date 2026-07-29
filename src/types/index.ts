@@ -30,6 +30,7 @@ export interface DescricaoServico {
   status: StatusDS;
   tipo: TipoDS;
   token_aprovacao: string;
+  numero_ds: string | null;
   criado_em: string;
   atualizado_em: string;
   obra?: Obra;

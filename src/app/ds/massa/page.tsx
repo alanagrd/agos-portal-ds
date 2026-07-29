@@ -8,7 +8,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 import Header from '@/components/layout/Header'
 import { Obra, TipoDS } from '@/types'
-import { TIPO_CONFIG, autoMatchTipo } from '@/lib/utils'
+import { TIPO_CONFIG, autoMatchTipo, extrairNumeroDS } from '@/lib/utils'
 
 function mesAtual() {
   return new Date().toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })
@@ -103,7 +103,7 @@ export default function DSMassaPage() {
       // Criar DS
       const { data: novaDS, error } = await supabase
         .from('descricoes_servico')
-        .insert({ obra_id: item.obraId, mes_referencia: item.mes, status: 'Gerada', tipo: item.tipo })
+        .insert({ obra_id: item.obraId, mes_referencia: item.mes, status: 'Gerada', tipo: item.tipo, numero_ds: extrairNumeroDS(item.file.name) })
         .select()
         .single()
 
