@@ -17,18 +17,29 @@ function mesAtual() {
 }
 
 function autoMatchObra(filename: string, obras: Obra[]): string {
+  const upper = filename.toUpperCase().replace(/\.PDF$/i, '')
+
+  // Prioridade 1: codigo_cliente exato no nome do arquivo (ex: "02-BEGON-104")
+  // Ordena do mais longo para o mais curto para evitar match de substring mais curta
+  const comCodigo = obras
+    .filter(o => o.codigo_cliente?.trim())
+    .sort((a, b) => (b.codigo_cliente?.length ?? 0) - (a.codigo_cliente?.length ?? 0))
+  for (const obra of comCodigo) {
+    const codigo = (obra.codigo_cliente ?? '').toUpperCase().trim()
+    if (codigo && upper.includes(codigo)) return obra.id
+  }
+
+  // Prioridade 2: matching por palavras do nome e cliente (fallback)
   const nome = filename.toLowerCase().replace(/[-_]/g, ' ').replace(/\.pdf$/i, '')
   let melhor = ''
   let melhorScore = 0
   for (const obra of obras) {
-    const palavrasObra = obra.nome.toLowerCase().split(/\s+/)
-    const palavrasCliente = obra.cliente.toLowerCase().split(/\s+/)
-    const todas = [...palavrasObra, ...palavrasCliente]
+    const todas = [
+      ...obra.nome.toLowerCase().split(/\s+/),
+      ...obra.cliente.toLowerCase().split(/\s+/),
+    ]
     const score = todas.filter(p => p.length > 2 && nome.includes(p)).length
-    if (score > melhorScore) {
-      melhorScore = score
-      melhor = obra.id
-    }
+    if (score > melhorScore) { melhorScore = score; melhor = obra.id }
   }
   return melhorScore > 0 ? melhor : ''
 }
