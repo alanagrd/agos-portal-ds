@@ -22,8 +22,15 @@ const CODIGO_OBRA_PATTERN = /\d{2}-[A-Z0-9]{2,}-\d{3,}/i
 function autoMatchObra(filename: string, obras: Obra[]): string {
   const upper = filename.toUpperCase().replace(/\.PDF$/i, '')
 
-  // Prioridade 1: codigo_cliente exato no nome do arquivo
-  // Ordena do mais longo para o mais curto para evitar match de substring mais curta
+  // Prioridade 1: nome da obra exato no filename (ex: "01-BR393-114")
+  // Ordena do mais longo para o mais curto para evitar match de substring menor
+  const porNome = [...obras].sort((a, b) => b.nome.length - a.nome.length)
+  for (const obra of porNome) {
+    const nome = obra.nome.toUpperCase().trim()
+    if (nome.length > 3 && upper.includes(nome)) return obra.id
+  }
+
+  // Prioridade 2: codigo_cliente exato no filename (código de faturamento)
   const comCodigo = obras
     .filter(o => o.codigo_cliente?.trim())
     .sort((a, b) => (b.codigo_cliente?.length ?? 0) - (a.codigo_cliente?.length ?? 0))
@@ -36,8 +43,8 @@ function autoMatchObra(filename: string, obras: Obra[]): string {
   // retorna vazio — blank é melhor do que match errado
   if (CODIGO_OBRA_PATTERN.test(upper)) return ''
 
-  // Prioridade 2: matching por palavras (só para arquivos sem padrão de código)
-  const nome = filename.toLowerCase().replace(/[-_]/g, ' ').replace(/\.pdf$/i, '')
+  // Prioridade 3: matching por palavras (só para arquivos sem padrão de código)
+  const nomeLower = filename.toLowerCase().replace(/[-_]/g, ' ').replace(/\.pdf$/i, '')
   let melhor = ''
   let melhorScore = 0
   for (const obra of obras) {
@@ -45,7 +52,7 @@ function autoMatchObra(filename: string, obras: Obra[]): string {
       ...obra.nome.toLowerCase().split(/\s+/),
       ...obra.cliente.toLowerCase().split(/\s+/),
     ]
-    const score = todas.filter(p => p.length > 2 && nome.includes(p)).length
+    const score = todas.filter(p => p.length > 2 && nomeLower.includes(p)).length
     if (score > melhorScore) { melhorScore = score; melhor = obra.id }
   }
   return melhorScore > 0 ? melhor : ''
