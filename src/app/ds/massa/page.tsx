@@ -16,10 +16,13 @@ function mesAtual() {
     .replace(' de ', '/')
 }
 
+// Padrão de código de obra presente nos nomes dos arquivos: ex. 10-RECIF-089, 02-BEGON-104
+const CODIGO_OBRA_PATTERN = /\d{2}-[A-Z0-9]{2,}-\d{3,}/i
+
 function autoMatchObra(filename: string, obras: Obra[]): string {
   const upper = filename.toUpperCase().replace(/\.PDF$/i, '')
 
-  // Prioridade 1: codigo_cliente exato no nome do arquivo (ex: "02-BEGON-104")
+  // Prioridade 1: codigo_cliente exato no nome do arquivo
   // Ordena do mais longo para o mais curto para evitar match de substring mais curta
   const comCodigo = obras
     .filter(o => o.codigo_cliente?.trim())
@@ -29,7 +32,11 @@ function autoMatchObra(filename: string, obras: Obra[]): string {
     if (codigo && upper.includes(codigo)) return obra.id
   }
 
-  // Prioridade 2: matching por palavras do nome e cliente (fallback)
+  // Se o arquivo tem padrão de código de obra mas nenhuma obra casou,
+  // retorna vazio — blank é melhor do que match errado
+  if (CODIGO_OBRA_PATTERN.test(upper)) return ''
+
+  // Prioridade 2: matching por palavras (só para arquivos sem padrão de código)
   const nome = filename.toLowerCase().replace(/[-_]/g, ' ').replace(/\.pdf$/i, '')
   let melhor = ''
   let melhorScore = 0
