@@ -14,6 +14,7 @@ export default function AprovarPage({ params }: { params: { token: string } }) {
   const [acao, setAcao] = useState<'aprovando' | 'revisando' | null>(null)
   const [concluido, setConcluido] = useState<'aprovada' | 'revisao' | null>(null)
   const [erro, setErro] = useState<string | null>(null)
+  const [confirmandoAprovacao, setConfirmandoAprovacao] = useState(false)
   const supabase = createClient()
 
   useEffect(() => { loadDS() }, [])
@@ -289,7 +290,7 @@ export default function AprovarPage({ params }: { params: { token: string } }) {
 
           {/* Aprovação */}
           <button
-            onClick={aprovar}
+            onClick={() => setConfirmandoAprovacao(true)}
             disabled={!!acao}
             className="w-full bg-[#8BAB3E] hover:bg-[#7a9a35] disabled:opacity-60 text-white font-semibold py-3 rounded-lg text-sm transition-colors mb-4"
           >
@@ -326,6 +327,35 @@ export default function AprovarPage({ params }: { params: { token: string } }) {
           AGOS Serviços · info@agosservicos.com.br · (11) 4123-0831
         </p>
       </div>
+
+      {/* Modal de confirmação de aprovação */}
+      {confirmandoAprovacao && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-5">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <h2 className="text-base font-bold text-[#1C1C1E] mb-3">Confirmar aprovação</h2>
+            <p className="text-sm text-gray-600 leading-relaxed mb-6">
+              Você está aprovando a Descrição de Serviços de <strong>{ds.obra?.nome}</strong> referente
+              a <strong>{ds.mes_referencia}</strong> em nome do responsável da obra. Esta ação é final e
+              não pode ser desfeita pelo sistema. Confirma que você é o responsável pela obra e está de
+              acordo com o conteúdo do PDF?
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmandoAprovacao(false)}
+                className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold py-2.5 rounded-lg text-sm transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => { setConfirmandoAprovacao(false); aprovar() }}
+                className="flex-1 bg-[#8BAB3E] hover:bg-[#7a9a35] text-white font-semibold py-2.5 rounded-lg text-sm transition-colors"
+              >
+                Sim, aprovar definitivamente
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
