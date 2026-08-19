@@ -61,28 +61,62 @@ export async function GET(req: NextRequest) {
       const primeiraEntrada = entradas[0]
       const diasPendente = diasEntre(new Date(primeiraEntrada.criado_em), hoje)
 
-      const link = `${process.env.NEXT_PUBLIC_APP_URL}/aprovar/${ds.token_aprovacao}`
-      const { subject, html } = templateLembretePendente({
-        obraNome: ds.obra?.nome ?? ds.obra_id,
-        mesReferencia: ds.mes_referencia,
-        diasPendente,
-        link,
-      })
+      // Busca destinatários individuais (criados a partir da migração 20260819)
+      const { data: destinatarios } = await supabase
+        .from('destinatarios_aprovacao')
+        .select('nome, email, token')
+        .eq('ds_id', ds.id)
 
-      const emailsCopia: string[] = ds.obra?.emails_copia ?? []
+      if (destinatarios && destinatarios.length > 0) {
+        // Envia lembrete individual para cada destinatário com seu token próprio
+        const resultadosEmail = await Promise.allSettled(
+          destinatarios.map((dest: { nome: string; email: string; token: string }) => {
+            const link = `${process.env.NEXT_PUBLIC_APP_URL}/aprovar/${dest.token}`
+            const { subject, html } = templateLembretePendente({
+              obraNome: ds.obra?.nome ?? ds.obra_id,
+              mesReferencia: ds.mes_referencia,
+              diasPendente,
+              link,
+            })
+            return getResend().emails.send({ from: EMAIL_FROM, to: dest.email, subject, html })
+          })
+        )
 
-      const { error: emailError } = await getResend().emails.send({
-        from: EMAIL_FROM,
-        to: ds.obra?.responsavel_email,
-        cc: emailsCopia.length ? emailsCopia : undefined,
-        subject,
-        html,
-      })
+        const algumSucesso = resultadosEmail.some(
+          r => r.status === 'fulfilled' && !r.value.error
+        )
+        resultadosEmail.forEach((r, i) => {
+          if (r.status === 'rejected') {
+            console.error(`[cron/lembrete-aprovacao] Falha para ${destinatarios[i].email}:`, r.reason)
+          } else if (r.value.error) {
+            console.error(`[cron/lembrete-aprovacao] Resend error para ${destinatarios[i].email}:`, r.value.error)
+          }
+        })
 
-      if (emailError) {
-        console.error(`[cron/lembrete-aprovacao] Resend error para DS ${ds.id}:`, emailError)
-        falhas++
-        return
+        if (!algumSucesso) { falhas++; return }
+      } else {
+        // Fallback legado: token único direto na DS (links enviados antes da migração)
+        const link = `${process.env.NEXT_PUBLIC_APP_URL}/aprovar/${ds.token_aprovacao}`
+        const { subject, html } = templateLembretePendente({
+          obraNome: ds.obra?.nome ?? ds.obra_id,
+          mesReferencia: ds.mes_referencia,
+          diasPendente,
+          link,
+        })
+        const emailsCopia: string[] = ds.obra?.emails_copia ?? []
+        const { error: emailError } = await getResend().emails.send({
+          from: EMAIL_FROM,
+          to: ds.obra?.responsavel_email,
+          cc: emailsCopia.length ? emailsCopia : undefined,
+          subject,
+          html,
+        })
+
+        if (emailError) {
+          console.error(`[cron/lembrete-aprovacao] Resend error para DS ${ds.id}:`, emailError)
+          falhas++
+          return
+        }
       }
 
       await supabase.from('historico_acoes').insert({

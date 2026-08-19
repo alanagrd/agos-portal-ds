@@ -85,14 +85,49 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
   }
 
   // "Em análise interna" -> "Aguardando aprovação da obra"
+  // Garante que todos os destinatários da obra têm registro em destinatarios_aprovacao
+  // e retorna a lista com os tokens individuais. No reenvio, reutiliza tokens existentes.
+  const garantirDestinatarios = async (dsId: string) => {
+    const obra = ds!.obra!
+    const candidatos = [
+      { nome: obra.responsavel_nome, email: obra.responsavel_email, tipo: 'responsavel' as const },
+      ...(obra.emails_copia ?? []).map(email => ({ nome: email, email, tipo: 'copia' as const })),
+    ]
+
+    const { data: existentes } = await supabase
+      .from('destinatarios_aprovacao')
+      .select('email')
+      .eq('ds_id', dsId)
+
+    const existentesSet = new Set((existentes ?? []).map((d: { email: string }) => d.email.toLowerCase()))
+    const novos = candidatos.filter(c => !existentesSet.has(c.email.toLowerCase()))
+
+    if (novos.length > 0) {
+      await supabase.from('destinatarios_aprovacao').insert(
+        novos.map(d => ({ ds_id: dsId, nome: d.nome, email: d.email, tipo: d.tipo }))
+      )
+    }
+
+    const { data: todos } = await supabase
+      .from('destinatarios_aprovacao')
+      .select('nome, email, token')
+      .eq('ds_id', dsId)
+
+    return (todos ?? []) as { nome: string; email: string; token: string }[]
+  }
+
   const aprovarInternamente = async () => {
     if (!ds) return
     await supabase.from('descricoes_servico').update({ status: 'Aguardando aprovação da obra' }).eq('id', ds.id)
+
+    const destinatarios = await garantirDestinatarios(ds.id)
+    const totalDest = destinatarios.length
+
     await supabase.from('historico_acoes').insert({
       ds_id: ds.id,
       acao: comentario.trim()
-        ? `DS aprovada internamente por ${nomeCompleto}: "${comentario.trim()}". Enviada para aprovação da obra. Link enviado para ${ds.obra?.responsavel_email}.`
-        : `DS aprovada internamente por ${nomeCompleto}. Enviada para aprovação da obra. Link enviado para ${ds.obra?.responsavel_email}.`,
+        ? `DS aprovada internamente por ${nomeCompleto}: "${comentario.trim()}". Enviada para aprovação da obra. Link enviado para ${totalDest} destinatário(s).`
+        : `DS aprovada internamente por ${nomeCompleto}. Enviada para aprovação da obra. Link enviado para ${totalDest} destinatário(s).`,
       autor: nomeCompleto,
       autor_email: userEmail,
       tipo: 'sistema',
@@ -102,14 +137,10 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        dsId: ds.id,
+        destinatarios,
         obraNome: ds.obra?.nome,
-        responsavelNome: ds.obra?.responsavel_nome,
         tipoDS: ds.tipo,
         mesReferencia: ds.mes_referencia,
-        token: ds.token_aprovacao,
-        responsavelEmail: ds.obra?.responsavel_email,
-        emailsCopia: ds.obra?.emails_copia ?? [],
       }),
     }).catch(err => console.error('[email/aprovacao]', err))
     loadDS()
@@ -137,26 +168,26 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
 
   const reenviarEmailAprovacao = async () => {
     if (!ds) return
-    const destino = `${ds.obra?.responsavel_nome} (${ds.obra?.responsavel_email})${ds.obra?.emails_copia?.length ? ` e ${ds.obra.emails_copia.length} email(s) em cópia` : ''}`
-    if (!confirm(`Reenviar o email de aprovação para ${destino}?`)) return
+    const totalDest = 1 + (ds.obra?.emails_copia?.length ?? 0)
+    if (!confirm(`Reenviar o email de aprovação para ${totalDest} destinatário(s)?`)) return
     setReenviando(true)
+
+    const destinatarios = await garantirDestinatarios(ds.id)
+
     await fetch('/api/email/aprovacao', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        dsId: ds.id,
+        destinatarios,
         obraNome: ds.obra?.nome,
-        responsavelNome: ds.obra?.responsavel_nome,
         tipoDS: ds.tipo,
         mesReferencia: ds.mes_referencia,
-        token: ds.token_aprovacao,
-        responsavelEmail: ds.obra?.responsavel_email,
-        emailsCopia: ds.obra?.emails_copia ?? [],
       }),
     }).catch(err => console.error('[reenviarEmailAprovacao]', err))
+
     await supabase.from('historico_acoes').insert({
       ds_id: ds.id,
-      acao: `Email de aprovação reenviado manualmente por ${nomeCompleto}. Link enviado para ${ds.obra?.responsavel_email}.`,
+      acao: `Email de aprovação reenviado manualmente por ${nomeCompleto}. Link enviado para ${destinatarios.length} destinatário(s).`,
       autor: nomeCompleto,
       autor_email: userEmail,
       tipo: 'sistema',
@@ -174,14 +205,10 @@ export default function DSDetalhePage({ params }: { params: { id: string } }) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        dsId: ds.id,
+        destinatarios: [{ nome: 'Teste', email: emailTeste.trim(), token: ds.token_aprovacao }],
         obraNome: ds.obra?.nome,
-        responsavelNome: ds.obra?.responsavel_nome,
         tipoDS: ds.tipo,
         mesReferencia: ds.mes_referencia,
-        token: ds.token_aprovacao,
-        responsavelEmail: emailTeste.trim(),
-        emailsCopia: [],
       }),
     }).catch(err => console.error('[enviarEmailTeste]', err))
     setTestando(false)

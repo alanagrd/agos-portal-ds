@@ -20,11 +20,24 @@ export default function ClientePage() {
   const [filtrosTipo, setFiltrosTipo] = useState<Set<TipoDS>>(new Set())
   const [tipoDropdownAberto, setTipoDropdownAberto] = useState(false)
   const [filtroStatus, setFiltroStatus] = useState('todos')
+  const [userNome, setUserNome] = useState('')
+  const [userEmail, setUserEmail] = useState('')
+  const [dsAtiva, setDsAtiva] = useState<DescricaoServico | null>(null)
+  const [modalTipo, setModalTipo] = useState<'aprovacao' | 'revisao' | null>(null)
+  const [comentarioModal, setComentarioModal] = useState('')
+  const [processandoModal, setProcessandoModal] = useState(false)
+  const [erroModal, setErroModal] = useState<string | null>(null)
   const tipoDropdownRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const supabase = createClient()
 
   useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        setUserNome(user.user_metadata?.nome ?? user.email ?? '')
+        setUserEmail(user.email ?? '')
+      }
+    })
     loadDS()
     const intervalo = setInterval(loadDS, 60_000)
     return () => clearInterval(intervalo)
@@ -47,6 +60,78 @@ export default function ClientePage() {
       .order('criado_em', { ascending: false })
     if (data) setDsList(data)
     setLoading(false)
+  }
+
+  const abrirModal = (ds: DescricaoServico, tipo: 'aprovacao' | 'revisao') => {
+    setDsAtiva(ds)
+    setModalTipo(tipo)
+    setComentarioModal('')
+    setErroModal(null)
+  }
+
+  const fecharModal = () => {
+    setDsAtiva(null)
+    setModalTipo(null)
+    setComentarioModal('')
+    setErroModal(null)
+  }
+
+  const confirmarAprovacao = async () => {
+    if (!dsAtiva) return
+    setProcessandoModal(true)
+    setErroModal(null)
+
+    const { error } = await supabase
+      .from('descricoes_servico')
+      .update({ status: 'Aprovada' })
+      .eq('id', dsAtiva.id)
+
+    if (error) {
+      setErroModal('Não foi possível registrar a aprovação. Tente novamente.')
+      setProcessandoModal(false)
+      return
+    }
+
+    await supabase.from('historico_acoes').insert({
+      ds_id: dsAtiva.id,
+      acao: 'DS aprovada sem ressalvas.',
+      autor: userNome || userEmail,
+      autor_email: userEmail || undefined,
+      tipo: 'cliente',
+    })
+
+    setProcessandoModal(false)
+    fecharModal()
+    loadDS()
+  }
+
+  const confirmarRevisao = async () => {
+    if (!dsAtiva || !comentarioModal.trim()) return
+    setProcessandoModal(true)
+    setErroModal(null)
+
+    const { error } = await supabase
+      .from('descricoes_servico')
+      .update({ status: 'Alteração solicitada' })
+      .eq('id', dsAtiva.id)
+
+    if (error) {
+      setErroModal('Não foi possível registrar a solicitação. Tente novamente.')
+      setProcessandoModal(false)
+      return
+    }
+
+    await supabase.from('historico_acoes').insert({
+      ds_id: dsAtiva.id,
+      acao: `Alteração solicitada pela obra: "${comentarioModal.trim()}"`,
+      autor: userNome || userEmail,
+      autor_email: userEmail || undefined,
+      tipo: 'cliente',
+    })
+
+    setProcessandoModal(false)
+    fecharModal()
+    loadDS()
   }
 
   const toggleFiltroTipo = (tipo: TipoDS) => {
@@ -218,13 +303,12 @@ export default function ClientePage() {
                     {sc.label}
                   </div>
                   {ds.status === 'Aguardando aprovação da obra' && (
-                    <a
-                      href={`/aprovar/${ds.token_aprovacao}`}
-                      onClick={e => e.stopPropagation()}
+                    <button
+                      onClick={e => { e.stopPropagation(); abrirModal(ds, 'aprovacao') }}
                       className="bg-[#E87722] hover:bg-[#d06a1a] text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors"
                     >
                       Aprovar
-                    </a>
+                    </button>
                   )}
                   <span className="text-gray-300 text-lg">›</span>
                 </div>
@@ -233,6 +317,73 @@ export default function ClientePage() {
           })}
         </div>
       </div>
+
+      {/* Modal de confirmação de aprovação */}
+      {modalTipo === 'aprovacao' && dsAtiva && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-5">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <h2 className="text-base font-bold text-[#1C1C1E] mb-3">Confirmar aprovação</h2>
+            <p className="text-sm text-gray-600 leading-relaxed mb-6">
+              Você está aprovando a Descrição de Serviços de <strong>{dsAtiva.obra?.nome}</strong> referente
+              a <strong>{dsAtiva.mes_referencia}</strong>. Esta ação é final e não pode ser desfeita pelo sistema.
+              Confirma que está de acordo com o conteúdo do PDF?
+            </p>
+            {erroModal && <p className="text-xs text-red-500 mb-3">{erroModal}</p>}
+            <div className="flex gap-3">
+              <button
+                onClick={fecharModal}
+                disabled={processandoModal}
+                className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold py-2.5 rounded-lg text-sm transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarAprovacao}
+                disabled={processandoModal}
+                className="flex-1 bg-[#8BAB3E] hover:bg-[#7a9a35] disabled:opacity-60 text-white font-semibold py-2.5 rounded-lg text-sm transition-colors"
+              >
+                {processandoModal ? 'Aprovando...' : 'Sim, aprovar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de solicitação de alteração */}
+      {modalTipo === 'revisao' && dsAtiva && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 px-5">
+          <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-xl">
+            <h2 className="text-base font-bold text-[#1C1C1E] mb-3">Solicitar alteração</h2>
+            <p className="text-sm text-gray-600 mb-3">
+              DS de <strong>{dsAtiva.obra?.nome}</strong> — {dsAtiva.mes_referencia}
+            </p>
+            <textarea
+              value={comentarioModal}
+              onChange={e => setComentarioModal(e.target.value)}
+              placeholder="Descreva o que precisa ser corrigido..."
+              className="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-[#E87722] mb-3"
+              rows={3}
+            />
+            {erroModal && <p className="text-xs text-red-500 mb-3">{erroModal}</p>}
+            <div className="flex gap-3">
+              <button
+                onClick={fecharModal}
+                disabled={processandoModal}
+                className="flex-1 border border-gray-200 text-gray-600 hover:bg-gray-50 font-semibold py-2.5 rounded-lg text-sm transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmarRevisao}
+                disabled={!comentarioModal.trim() || processandoModal}
+                className="flex-1 border border-[#E87722] text-[#E87722] hover:bg-orange-50 disabled:opacity-40 font-semibold py-2.5 rounded-lg text-sm transition-colors"
+              >
+                {processandoModal ? 'Enviando...' : 'Solicitar alteração'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

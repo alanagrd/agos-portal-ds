@@ -60,6 +60,16 @@ export interface HistoricoAcao {
 
 export type PerfilUsuario = 'agos' | 'cliente'
 
+export interface DestinatarioAprovacao {
+  id: string;
+  ds_id: string;
+  nome: string;
+  email: string;
+  tipo: 'responsavel' | 'copia';
+  token: string;
+  criado_em: string;
+}
+
 export interface UsuarioAgos {
   id: string;
   nome: string;

@@ -15,16 +15,39 @@ export default function AprovarPage({ params }: { params: { token: string } }) {
   const [concluido, setConcluido] = useState<'aprovada' | 'revisao' | null>(null)
   const [erro, setErro] = useState<string | null>(null)
   const [confirmandoAprovacao, setConfirmandoAprovacao] = useState(false)
+  const [autorNome, setAutorNome] = useState('')
+  const [autorEmail, setAutorEmail] = useState('')
   const supabase = createClient()
 
   useEffect(() => { loadDS() }, [])
 
   const loadDS = async () => {
-    const { data: dsData } = await supabase
-      .from('descricoes_servico')
-      .select('*, obra:obras(*)')
-      .eq('token_aprovacao', params.token)
+    // Tenta token individual (destinatarios_aprovacao) — criado a partir de 2026-08-19
+    const { data: dest } = await supabase
+      .from('destinatarios_aprovacao')
+      .select('*, ds:descricoes_servico(*, obra:obras(*))')
+      .eq('token', params.token)
       .single()
+
+    let dsData: DescricaoServico | null = null
+
+    if (dest) {
+      dsData = dest.ds as DescricaoServico
+      setAutorNome(dest.nome)
+      setAutorEmail(dest.email)
+    } else {
+      // Fallback: token legado direto na coluna token_aprovacao (links enviados antes da migração)
+      const { data: dsLegado } = await supabase
+        .from('descricoes_servico')
+        .select('*, obra:obras(*)')
+        .eq('token_aprovacao', params.token)
+        .single()
+      if (dsLegado) {
+        dsData = dsLegado
+        setAutorNome(dsLegado.obra?.responsavel_nome || 'Cliente')
+        setAutorEmail('')
+      }
+    }
 
     if (dsData) {
       setDs(dsData)
@@ -88,7 +111,8 @@ export default function AprovarPage({ params }: { params: { token: string } }) {
     await supabase.from('historico_acoes').insert({
       ds_id: ds.id,
       acao: 'DS aprovada sem ressalvas.',
-      autor: ds.obra?.responsavel_nome || 'Cliente',
+      autor: autorNome || ds.obra?.responsavel_nome || 'Cliente',
+      autor_email: autorEmail || undefined,
       tipo: 'cliente',
     })
 
@@ -141,7 +165,8 @@ export default function AprovarPage({ params }: { params: { token: string } }) {
     await supabase.from('historico_acoes').insert({
       ds_id: ds.id,
       acao: `Alteração solicitada pela obra: "${comentario}"`,
-      autor: ds.obra?.responsavel_nome || 'Cliente',
+      autor: autorNome || ds.obra?.responsavel_nome || 'Cliente',
+      autor_email: autorEmail || undefined,
       tipo: 'cliente',
     })
 
